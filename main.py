@@ -13,6 +13,8 @@ HEADERS = {
     )
 }
 
+import re
+
 
 def get_events():
 
@@ -39,21 +41,28 @@ def get_events():
 
         lower = clean.lower()
 
+        if "mettet" not in lower and "croix" not in lower:
+            continue
+
+        # datum zoeken
+        date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
+
+        if date_match:
+            date = date_match.group()
+        else:
+            date = "Onbekend"
+
+        # circuit bepalen
         if "mettet" in lower:
+            circuit = "Mettet"
+        else:
+            circuit = "Croix"
 
-            events.append({
-                "circuit": "Mettet",
-                "tekst": clean,
-                "organisatie": "Intertrack"
-            })
-
-        elif "croix" in lower:
-
-            events.append({
-                "circuit": "Croix",
-                "tekst": clean,
-                "organisatie": "Intertrack"
-            })
+        events.append({
+            "date": date,
+            "circuit": circuit,
+            "organisatie": "Intertrack"
+        })
 
     return events
 
