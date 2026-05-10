@@ -19,9 +19,9 @@ def home():
     try:
 
         r = requests.get(
-            "https://plantrackday.com/en/calendar",
-            headers=HEADERS,
-            timeout=10
+    "https://www.plantrackday.com",
+    headers=HEADERS,
+    timeout=10
         )
 
         text_preview = r.text[:500]
