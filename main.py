@@ -88,20 +88,19 @@ def home():
         background: #f5f5f5;
     }
 
-    html += f"""
+html += f"""
 
 <div class="card">
 
     <h2>{e['circuit']}</h2>
 
-    <p><b>Datum:</b> {e['date']}</p>
+    <p><b>📅 Datum:</b> {e['date']}</p>
 
-    <p><b>Organisatie:</b> {e['organisatie']}</p>
+    <p><b>🏢 Organisatie:</b> {e['organisatie']}</p>
 
 </div>
 
 """
-
     </style>
 
     </head>
