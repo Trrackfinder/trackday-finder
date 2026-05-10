@@ -137,4 +137,43 @@ def home():
     </html>
     """
 
+        return html
+
+
+@app.get("/debug", response_class=HTMLResponse)
+def debug():
+
+    urls = [
+        ("Intertrack", "https://www.inter-track.be"),
+        ("Trackdays.be", "https://www.trackdays.be"),
+    ]
+
+    html = "<h1>Debug websites</h1>"
+
+    for name, url in urls:
+
+        try:
+
+            r = requests.get(url, headers=HEADERS, timeout=10)
+
+            soup = BeautifulSoup(r.text, "html.parser")
+
+            text = soup.get_text("\n").lower()
+
+            html += f"""
+
+            <h2>{name}</h2>
+
+            <p>Status: {r.status_code}</p>
+
+            <p>Mettet gevonden: {"ja" if "mettet" in text else "nee"}</p>
+
+            <p>Croix gevonden: {"ja" if "croix" in text else "nee"}</p>
+
+            """
+
+        except Exception as e:
+
+            html += f"<h2>{name}</h2><p>Fout: {e}</p>"
+
     return html
