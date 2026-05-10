@@ -7,72 +7,69 @@ from datetime import datetime
 
 app = FastAPI()
 
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
+HEADERS = {"User-Agent": "Mozilla/5.0"}
+
+MONTHS = {
+    "jan": "01",
+    "feb": "02",
+    "mrt": "03",
+    "mar": "03",
+    "apr": "04",
+    "mei": "05",
+    "may": "05",
+    "jun": "06",
+    "jul": "07",
+    "aug": "08",
+    "sep": "09",
+    "okt": "10",
+    "oct": "10",
+    "nov": "11",
+    "dec": "12",
 }
 
 
-def parse_date(text):
-    patterns = [
-        r"\d{2}/\d{2}/\d{4}",
-        r"\d{1,2}/\d{1,2}/\d{4}",
-        r"\d{1,2}-\d{1,2}-\d{4}",
-        r"\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}",
-        r"\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{4}",
-    ]
-
-    lower = text.lower()
-
-    for pattern in patterns:
-        match = re.search(pattern, lower)
-        if match:
-            return match.group().replace("-", "/")
-
-    return "Onbekend"
-
-
-def extract_events_from_text(text, organisatie):
+def get_intertrack_events():
     events = []
     seen = set()
-    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
-    for i, line in enumerate(lines):
-        lower = line.lower()
-
-        if "mettet" not in lower and "croix" not in lower:
-            continue
-
-        nearby_lines = lines[max(0, i - 10): i + 11]
-        nearby_text = " ".join(nearby_lines)
-
-        date = parse_date(nearby_text)
-        circuit = "Mettet" if "mettet" in lower else "Croix"
-
-        key = f"{date}-{circuit}-{organisatie}-{nearby_text[:80]}"
-
-        if key in seen:
-            continue
-
-        seen.add(key)
-
-        events.append({
-            "date": date,
-            "circuit": circuit,
-            "organisatie": organisatie,
-            "raw": nearby_text
-        })
-
-    return events
-
-
-def get_intertrack_events():
     try:
         r = requests.get("https://www.inter-track.be", headers=HEADERS, timeout=10)
         soup = BeautifulSoup(r.text, "html.parser")
-        return extract_events_from_text(soup.get_text("\n"), "Intertrack")
+        text = soup.get_text("\n")
+
+        for line in text.splitlines():
+            clean = line.strip()
+            lower = clean.lower()
+
+            if "mettet" not in lower and "croix" not in lower:
+                continue
+
+            date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
+
+            if not date_match:
+                continue
+
+            date = date_match.group()
+            circuit = "Mettet" if "mettet" in lower else "Croix"
+
+            key = f"{date}-{circuit}-Intertrack"
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            events.append({
+                "date": date,
+                "circuit": circuit,
+                "organisatie": "Intertrack",
+                "raw": clean
+            })
+
     except Exception as e:
         print("Intertrack fout:", e)
-        return []
+
+    return events
 
 
 def get_trackdays_events():
@@ -83,12 +80,61 @@ def get_trackdays_events():
     ]
 
     events = []
+    seen = set()
 
     for url in urls:
         try:
             r = requests.get(url, headers=HEADERS, timeout=10)
             soup = BeautifulSoup(r.text, "html.parser")
-            events += extract_events_from_text(soup.get_text("\n"), "Trackdays.be")
+            lines = [line.strip() for line in soup.get_text("\n").splitlines() if line.strip()]
+
+            current_month = None
+
+            for i, line in enumerate(lines):
+                lower = line.lower().replace(".", "")
+
+                if lower in MONTHS:
+                    current_month = MONTHS[lower]
+                    continue
+
+                if "track mettet" not in lower and "track croix" not in lower and lower not in ["mettet", "croix"]:
+                    continue
+
+                circuit = "Mettet" if "mettet" in lower else "Croix"
+
+                day = None
+
+                for previous in reversed(lines[max(0, i - 8):i]):
+                    previous_clean = previous.strip().lower().replace(".", "")
+
+                    if previous_clean in MONTHS:
+                        current_month = MONTHS[previous_clean]
+
+                    if previous_clean.isdigit():
+                        day = previous_clean.zfill(2)
+                        break
+
+                if not day or not current_month:
+                    continue
+
+                date = f"{day}/{current_month}/2026"
+
+                key = f"{date}-{circuit}-Trackdays.be"
+
+                if key in seen:
+                    continue
+
+                seen.add(key)
+
+                nearby = " ".join(lines[max(0, i - 5): i + 6])
+
+                events.append({
+                    "date": date,
+                    "circuit": circuit,
+                    "organisatie": "Trackdays.be",
+                    "raw": nearby
+                })
+
         except Exception as e:
             print("Trackdays.be fout:", url, e)
 
@@ -111,9 +157,11 @@ def get_events():
     seen = set()
 
     for e in events:
-        key = f"{e['date']}-{e['circuit']}-{e['organisatie']}-{e['raw'][:60]}"
+        key = f"{e['date']}-{e['circuit']}-{e['organisatie']}"
+
         if key in seen:
             continue
+
         seen.add(key)
         unique.append(e)
 
@@ -178,41 +226,5 @@ def home():
     </body>
     </html>
     """
-
-    return html
-
-
-@app.get("/trackdays-debug", response_class=HTMLResponse)
-def trackdays_debug():
-    urls = [
-        "https://www.trackdays.be/nl",
-        "https://www.trackdays.be/fr",
-        "https://www.trackdays.be/en",
-    ]
-
-    html = "<h1>Trackdays.be debug</h1>"
-
-    for url in urls:
-        try:
-            r = requests.get(url, headers=HEADERS, timeout=10)
-            soup = BeautifulSoup(r.text, "html.parser")
-            text = soup.get_text("\n")
-            lines = [line.strip() for line in text.splitlines() if line.strip()]
-
-            html += f"<h2>{url}</h2><p>Status: {r.status_code}</p>"
-
-            for i, line in enumerate(lines):
-                lower = line.lower()
-
-                if "mettet" in lower or "croix" in lower:
-                    snippet = "<br>".join(lines[max(0, i - 10): i + 11])
-                    html += f"""
-                    <div style="border:1px solid #ccc; padding:10px; margin:10px;">
-                        {snippet}
-                    </div>
-                    """
-
-        except Exception as e:
-            html += f"<p>Fout: {e}</p>"
 
     return html
