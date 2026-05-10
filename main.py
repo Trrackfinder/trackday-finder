@@ -11,22 +11,11 @@ HEADERS = {
 }
 
 
-def get_events():
-
-    url = "https://www.inter-track.be"
-
-    r = requests.get(url, headers=HEADERS, timeout=10)
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    text = soup.get_text("\n")
-
+def extract_events_from_text(text, organisatie):
     events = []
-
     seen = set()
 
     for line in text.splitlines():
-
         clean = line.strip()
 
         if not clean:
@@ -37,22 +26,15 @@ def get_events():
         if "mettet" not in lower and "croix" not in lower:
             continue
 
-        # datum zoeken
         date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
 
         if not date_match:
             continue
 
         date = date_match.group()
+        circuit = "Mettet" if "mettet" in lower else "Croix"
 
-        # circuit
-        if "mettet" in lower:
-            circuit = "Mettet"
-        else:
-            circuit = "Croix"
-
-        # duplicates voorkomen
-        key = f"{date}-{circuit}"
+        key = f"{date}-{circuit}-{organisatie}"
 
         if key in seen:
             continue
@@ -62,9 +44,48 @@ def get_events():
         events.append({
             "date": date,
             "circuit": circuit,
-            "organisatie": "Intertrack",
+            "organisatie": organisatie,
             "raw": clean
         })
+
+    return events
+
+
+def get_intertrack_events():
+    url = "https://www.inter-track.be"
+
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(r.text, "html.parser")
+        text = soup.get_text("\n")
+        return extract_events_from_text(text, "Intertrack")
+
+    except Exception as e:
+        print("Intertrack fout:", e)
+        return []
+
+
+def get_trackdays_events():
+    url = "https://www.trackdays.be"
+
+    try:
+        r = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(r.text, "html.parser")
+        text = soup.get_text("\n")
+        return extract_events_from_text(text, "Trackdays.be")
+
+    except Exception as e:
+        print("Trackdays.be fout:", e)
+        return []
+
+
+def get_events():
+    events = []
+
+    events += get_intertrack_events()
+    events += get_trackdays_events()
+
+    events.sort(key=lambda e: e["date"])
 
     return events
 
@@ -107,6 +128,7 @@ def home():
             <h2>{e["circuit"]}</h2>
             <p><b>Datum:</b> {e["date"]}</p>
             <p><b>Organisatie:</b> {e["organisatie"]}</p>
+            <p><small>{e["raw"]}</small></p>
         </div>
         """
 
