@@ -16,7 +16,7 @@ HEADERS = {
 
 def get_events():
 
-    url = "https://www.plantrackday.com"
+    url = "https://www.inter-track.be"
 
     r = requests.get(
         url,
@@ -43,14 +43,16 @@ def get_events():
 
             events.append({
                 "circuit": "Mettet",
-                "tekst": clean
+                "tekst": clean,
+                "organisatie": "Intertrack"
             })
 
         elif "croix" in lower:
 
             events.append({
                 "circuit": "Croix",
-                "tekst": clean
+                "tekst": clean,
+                "organisatie": "Intertrack"
             })
 
     return events
@@ -67,8 +69,6 @@ def home():
 
     <head>
 
-    <title>Trackday Finder</title>
-
     <style>
 
     body {
@@ -79,16 +79,11 @@ def home():
         background: #f5f5f5;
     }
 
-    h1 {
-        color: #111;
-    }
-
     .card {
         background: white;
-        border-radius: 10px;
         padding: 15px;
-        margin-bottom: 15px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        border-radius: 10px;
+        margin-bottom: 10px;
     }
 
     </style>
@@ -112,6 +107,8 @@ def home():
         <div class="card">
 
             <h3>{e['circuit']}</h3>
+
+            <p>{e['organisatie']}</p>
 
             <p>{e['tekst']}</p>
 
