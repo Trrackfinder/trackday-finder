@@ -116,20 +116,14 @@ def home():
 
         html += "<p>Geen events gevonden.</p>"
 
-    for e in events:
+        for e in events:
 
         html += f"""
-
         <div class="card">
-
-            <h3>{e['circuit']}</h3>
-
-            <p>{e['organisatie']}</p>
-
-            <p>{e['tekst']}</p>
-
+            <h2>{e['circuit']}</h2>
+            <p><b>Datum:</b> {e['date']}</p>
+            <p><b>Organisatie:</b> {e['organisatie']}</p>
         </div>
-
         """
 
     html += "</body></html>"
