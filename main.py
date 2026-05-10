@@ -29,7 +29,6 @@ def extract_events_from_text(text, organisatie):
 
         date = date_match.group()
         circuit = "Mettet" if "mettet" in lower else "Croix"
-
         key = f"{date}-{circuit}-{organisatie}"
 
         if key in seen:
@@ -53,26 +52,33 @@ def get_intertrack_events():
     try:
         r = requests.get(url, headers=HEADERS, timeout=10)
         soup = BeautifulSoup(r.text, "html.parser")
-        text = soup.get_text("\n")
-        return extract_events_from_text(text, "Intertrack")
-
+        return extract_events_from_text(soup.get_text("\n"), "Intertrack")
     except Exception as e:
         print("Intertrack fout:", e)
         return []
 
 
 def get_trackdays_events():
-    url = "https://www.trackdays.be"
+    urls = [
+        "https://www.trackdays.be",
+        "https://www.trackdays.be/nl",
+        "https://www.trackdays.be/fr",
+        "https://www.trackdays.be/en",
+        "https://www.trackdays.be/nl/kalender",
+        "https://www.trackdays.be/en/calendar",
+    ]
 
-    try:
-        r = requests.get(url, headers=HEADERS, timeout=10)
-        soup = BeautifulSoup(r.text, "html.parser")
-        text = soup.get_text("\n")
-        return extract_events_from_text(text, "Trackdays.be")
+    events = []
 
-    except Exception as e:
-        print("Trackdays.be fout:", e)
-        return []
+    for url in urls:
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=10)
+            soup = BeautifulSoup(r.text, "html.parser")
+            events += extract_events_from_text(soup.get_text("\n"), "Trackdays.be")
+        except Exception as e:
+            print("Trackdays.be fout:", url, e)
+
+    return events
 
 
 def get_events():
@@ -138,7 +144,12 @@ def home():
 def debug():
     urls = [
         ("Intertrack", "https://www.inter-track.be"),
-        ("Trackdays.be", "https://www.trackdays.be"),
+        ("Trackdays.be home", "https://www.trackdays.be"),
+        ("Trackdays.be nl", "https://www.trackdays.be/nl"),
+        ("Trackdays.be fr", "https://www.trackdays.be/fr"),
+        ("Trackdays.be en", "https://www.trackdays.be/en"),
+        ("Trackdays.be nl kalender", "https://www.trackdays.be/nl/kalender"),
+        ("Trackdays.be en calendar", "https://www.trackdays.be/en/calendar"),
     ]
 
     html = "<h1>Debug websites</h1>"
@@ -154,6 +165,7 @@ def debug():
 
             html += f"""
             <h2>{name}</h2>
+            <p>URL: {url}</p>
             <p>Status: {r.status_code}</p>
             <p>Mettet gevonden: {mettet}</p>
             <p>Croix gevonden: {croix}</p>
