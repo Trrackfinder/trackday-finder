@@ -2,3 +2,5 @@ plain text
 
 fastapi
 uvicorn
+requests
+beatifilsoup4
