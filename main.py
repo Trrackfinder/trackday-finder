@@ -11,77 +11,40 @@ HEADERS = {
 
 
 def get_events():
-    url = [
-        "https://inter-track.be/en/calendar"
-        "https://trackdays.be/en/calendar"
-        "https://ciruitdagen.com/en/calendar"
-    ]
-    r = requests.get(url, headers=HEADERS)
 
-    soup = BeautifulSoup(r.text, "html.parser")
+    urls = [
+        "https://inter-track.be/en/calendar",
+        "https://trackdays.be/en/calendar"
+    ]
 
     events = []
 
-    text = soup.get_text("\n")
+    for url in urls:
 
-    for line in text.splitlines():
+        try:
+            r = requests.get(url, headers=HEADERS, timeout=10)
 
-        line_lower = line.lower()
+            soup = BeautifulSoup(r.text, "html.parser")
 
-        if "mettet" in line_lower:
-            events.append({
-                "circuit": "Mettet",
-                "organisatie": url
-            })
+            text = soup.get_text("\n")
 
-        elif "croix" in line_lower:
-            events.append({
-                "circuit": "Croix",
-                "organisatie": url
-            })
+            for line in text.splitlines():
+
+                line_lower = line.lower()
+
+                if "mettet" in line_lower:
+                    events.append({
+                        "circuit": "Mettet",
+                        "organisatie": url
+                    })
+
+                elif "croix" in line_lower:
+                    events.append({
+                        "circuit": "Croix",
+                        "organisatie": url
+                    })
+
+        except Exception as e:
+            print(e)
 
     return events
-
-
-@app.get("/", response_class=HTMLResponse)
-def home():
-
-    events = get_events()
-
-    html = """
-    <html>
-    <head>
-        <title>Trackday Finder</title>
-        <style>
-            body {
-                font-family: Arial;
-                max-width: 800px;
-                margin: auto;
-                padding: 20px;
-            }
-
-            .card {
-                border: 1px solid #ddd;
-                border-radius: 8px;
-                padding: 10px;
-                margin: 10px 0;
-            }
-        </style>
-    </head>
-    <body>
-
-    <h1>🏁 Trackday Finder</h1>
-
-    """
-
-    for e in events:
-        html += f"""
-        <div class="card">
-            <b>{e['circuit']}</b><br>
-            Organisatie: {e['organisatie']}
-        </div>
-        """
-
-    html += "</body></html>"
-
-    return html
