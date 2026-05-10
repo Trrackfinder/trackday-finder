@@ -13,8 +13,7 @@ HEADERS = {
 def get_events():
 
     urls = [
-        "https://inter-track.be/en/calendar",
-        "https://trackdays.be/en/calendar"
+        "https://inter-track.be/en/calendar"
     ]
 
     events = []
