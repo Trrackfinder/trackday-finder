@@ -13,37 +13,42 @@ HEADERS = {
 
 
 def parse_date(text):
-    match = re.search(r"\d{2}/\d{2}/\d{4}", text)
-    if match:
-        return match.group()
+    patterns = [
+        r"\d{2}/\d{2}/\d{4}",
+        r"\d{1,2}/\d{1,2}/\d{4}",
+        r"\d{1,2}-\d{1,2}-\d{4}",
+        r"\d{1,2}\s+(januari|februari|maart|april|mei|juni|juli|augustus|september|oktober|november|december)\s+\d{4}",
+        r"\d{1,2}\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d{4}",
+    ]
 
-    match = re.search(r"\d{1,2}-\d{1,2}-\d{4}", text)
-    if match:
-        return match.group().replace("-", "/")
+    lower = text.lower()
 
-    return None
+    for pattern in patterns:
+        match = re.search(pattern, lower)
+        if match:
+            return match.group().replace("-", "/")
+
+    return "Onbekend"
 
 
-def extract_events_from_lines(text, organisatie):
+def extract_events_from_text(text, organisatie):
     events = []
     seen = set()
-    lines = text.splitlines()
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
 
     for i, line in enumerate(lines):
-        clean = line.strip()
-        lower = clean.lower()
+        lower = line.lower()
 
         if "mettet" not in lower and "croix" not in lower:
             continue
 
-        nearby_text = " ".join(lines[max(0, i - 3): i + 4])
+        nearby_lines = lines[max(0, i - 10): i + 11]
+        nearby_text = " ".join(nearby_lines)
+
         date = parse_date(nearby_text)
-
-        if not date:
-            continue
-
         circuit = "Mettet" if "mettet" in lower else "Croix"
-        key = f"{date}-{circuit}-{organisatie}"
+
+        key = f"{date}-{circuit}-{organisatie}-{nearby_text[:80]}"
 
         if key in seen:
             continue
@@ -54,20 +59,17 @@ def extract_events_from_lines(text, organisatie):
             "date": date,
             "circuit": circuit,
             "organisatie": organisatie,
-            "raw": nearby_text.strip()
+            "raw": nearby_text
         })
 
     return events
 
 
 def get_intertrack_events():
-    url = "https://www.inter-track.be"
-
     try:
-        r = requests.get(url, headers=HEADERS, timeout=10)
+        r = requests.get("https://www.inter-track.be", headers=HEADERS, timeout=10)
         soup = BeautifulSoup(r.text, "html.parser")
-        return extract_events_from_lines(soup.get_text("\n"), "Intertrack")
-
+        return extract_events_from_text(soup.get_text("\n"), "Intertrack")
     except Exception as e:
         print("Intertrack fout:", e)
         return []
@@ -86,16 +88,14 @@ def get_trackdays_events():
         try:
             r = requests.get(url, headers=HEADERS, timeout=10)
             soup = BeautifulSoup(r.text, "html.parser")
-            text = soup.get_text("\n")
-            events += extract_events_from_lines(text, "Trackdays.be")
-
+            events += extract_events_from_text(soup.get_text("\n"), "Trackdays.be")
         except Exception as e:
             print("Trackdays.be fout:", url, e)
 
     return events
 
 
-def normalize_date_for_sort(date_text):
+def sort_date(date_text):
     try:
         return datetime.strptime(date_text, "%d/%m/%Y")
     except:
@@ -104,7 +104,6 @@ def normalize_date_for_sort(date_text):
 
 def get_events():
     events = []
-
     events += get_intertrack_events()
     events += get_trackdays_events()
 
@@ -112,16 +111,13 @@ def get_events():
     seen = set()
 
     for e in events:
-        key = f"{e['date']}-{e['circuit']}-{e['organisatie']}"
-
+        key = f"{e['date']}-{e['circuit']}-{e['organisatie']}-{e['raw'][:60]}"
         if key in seen:
             continue
-
         seen.add(key)
         unique.append(e)
 
-    unique.sort(key=lambda e: normalize_date_for_sort(e["date"]))
-
+    unique.sort(key=lambda e: sort_date(e["date"]))
     return unique
 
 
@@ -142,15 +138,6 @@ def home():
                 background: #f5f5f5;
             }
 
-            h1 {
-                margin-bottom: 5px;
-            }
-
-            .subtitle {
-                color: #555;
-                margin-bottom: 25px;
-            }
-
             .card {
                 background: white;
                 padding: 15px;
@@ -164,19 +151,14 @@ def home():
                 font-weight: bold;
             }
 
-            .meta {
-                margin-top: 8px;
-                color: #333;
-            }
-
             small {
-                color: #777;
+                color: #666;
             }
         </style>
     </head>
     <body>
         <h1>Trackday Finder</h1>
-        <p class="subtitle">Mettet & Croix trackdays</p>
+        <p>Mettet & Croix trackdays</p>
     """
 
     if len(events) == 0:
@@ -186,8 +168,8 @@ def home():
         html += f"""
         <div class="card">
             <div class="circuit">{e["circuit"]}</div>
-            <div class="meta"><b>Datum:</b> {e["date"]}</div>
-            <div class="meta"><b>Organisatie:</b> {e["organisatie"]}</div>
+            <p><b>Datum:</b> {e["date"]}</p>
+            <p><b>Organisatie:</b> {e["organisatie"]}</p>
             <p><small>{e["raw"]}</small></p>
         </div>
         """
@@ -200,35 +182,37 @@ def home():
     return html
 
 
-@app.get("/debug", response_class=HTMLResponse)
-def debug():
+@app.get("/trackdays-debug", response_class=HTMLResponse)
+def trackdays_debug():
     urls = [
-        ("Intertrack", "https://www.inter-track.be"),
-        ("Trackdays.be nl", "https://www.trackdays.be/nl"),
-        ("Trackdays.be fr", "https://www.trackdays.be/fr"),
-        ("Trackdays.be en", "https://www.trackdays.be/en"),
+        "https://www.trackdays.be/nl",
+        "https://www.trackdays.be/fr",
+        "https://www.trackdays.be/en",
     ]
 
-    html = "<h1>Debug websites</h1>"
+    html = "<h1>Trackdays.be debug</h1>"
 
-    for name, url in urls:
+    for url in urls:
         try:
             r = requests.get(url, headers=HEADERS, timeout=10)
             soup = BeautifulSoup(r.text, "html.parser")
-            text = soup.get_text("\n").lower()
+            text = soup.get_text("\n")
+            lines = [line.strip() for line in text.splitlines() if line.strip()]
 
-            mettet = "ja" if "mettet" in text else "nee"
-            croix = "ja" if "croix" in text else "nee"
+            html += f"<h2>{url}</h2><p>Status: {r.status_code}</p>"
 
-            html += f"""
-            <h2>{name}</h2>
-            <p>URL: {url}</p>
-            <p>Status: {r.status_code}</p>
-            <p>Mettet gevonden: {mettet}</p>
-            <p>Croix gevonden: {croix}</p>
-            """
+            for i, line in enumerate(lines):
+                lower = line.lower()
+
+                if "mettet" in lower or "croix" in lower:
+                    snippet = "<br>".join(lines[max(0, i - 10): i + 11])
+                    html += f"""
+                    <div style="border:1px solid #ccc; padding:10px; margin:10px;">
+                        {snippet}
+                    </div>
+                    """
 
         except Exception as e:
-            html += f"<h2>{name}</h2><p>Fout: {e}</p>"
+            html += f"<p>Fout: {e}</p>"
 
     return html
