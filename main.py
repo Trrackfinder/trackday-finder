@@ -1,39 +1,43 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
-import requests
-from bs4 import BeautifulSoup
+
+from playwright.sync_api import sync_playwright
 
 app = FastAPI()
-
-HEADERS = {
-    "User-Agent": "Mozilla/5.0"
-}
 
 
 def get_events():
 
-    url = "https://plantrackday.com/en/calendar"
-
-    r = requests.get(url, headers=HEADERS)
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    text = soup.get_text("\n")
-
     events = []
 
-    for line in text.splitlines():
+    with sync_playwright() as p:
 
-        line_lower = line.lower().strip()
+        browser = p.chromium.launch(headless=True)
 
-        if "mettet" in line_lower:
+        page = browser.new_page()
+
+        page.goto("https://plantrackday.com/en/calendar")
+
+        page.wait_for_timeout(5000)
+
+        content = page.content()
+
+        browser.close()
+
+    lines = content.splitlines()
+
+    for line in lines:
+
+        lower = line.lower()
+
+        if "mettet" in lower:
 
             events.append({
                 "circuit": "Mettet",
                 "tekst": line.strip()
             })
 
-        elif "croix" in line_lower:
+        elif "croix" in lower:
 
             events.append({
                 "circuit": "Croix",
@@ -50,30 +54,7 @@ def home():
 
     html = """
     <html>
-    <head>
-        <title>Trackday Finder</title>
-
-        <style>
-
-        body {
-            font-family: Arial;
-            max-width: 800px;
-            margin: auto;
-            padding: 20px;
-        }
-
-        .card {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 10px;
-            margin-bottom: 10px;
-        }
-
-        </style>
-
-    </head>
-
-    <body>
+    <body style="font-family:Arial; max-width:800px; margin:auto;">
 
     <h1>🏁 Trackday Finder</h1>
 
@@ -83,10 +64,15 @@ def home():
 
         html += f"""
 
-        <div class="card">
+        <div style="
+            border:1px solid #ddd;
+            padding:10px;
+            margin-bottom:10px;
+            border-radius:8px;
+        ">
 
-            <b>{e['circuit']}</b><br>
-            {e['tekst']}
+        <b>{e['circuit']}</b><br>
+        {e['tekst']}
 
         </div>
 
