@@ -11,7 +11,11 @@ HEADERS = {
 
 
 def get_events():
-    url = "https://inter-track.be/en/calendar" "https://trackdays.be/en/calendar" "https://ciruitdagen.com/en/calendar"
+    url = [
+        "https://inter-track.be/en/calendar"
+        "https://trackdays.be/en/calendar"
+        "https://ciruitdagen.com/en/calendar"
+    ]
     r = requests.get(url, headers=HEADERS)
 
     soup = BeautifulSoup(r.text, "html.parser")
@@ -27,13 +31,13 @@ def get_events():
         if "mettet" in line_lower:
             events.append({
                 "circuit": "Mettet",
-                "organisatie": "PlanTrackday"
+                "organisatie": url
             })
 
         elif "croix" in line_lower:
             events.append({
                 "circuit": "Croix",
-                "organisatie": "PlanTrackday"
+                "organisatie": url
             })
 
     return events
