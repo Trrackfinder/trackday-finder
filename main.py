@@ -148,30 +148,4 @@ def debug():
         ("Trackdays.be", "https://www.trackdays.be"),
     ]
 
-    html = "<h1>Debug websites</h1>"
-
-    for name, url in urls:
-
-        try:
-
-            r = requests.get(url, headers=HEADERS, timeout=10)
-
-            soup = BeautifulSoup(r.text, "html.parser")
-
-            text = soup.get_text("\n").lower()
-
-            mettet = "ja" if "mettet" in text else "nee"
-            croix = "ja" if "croix" in text else "nee"
-
-            html += f"""
-            <h2>{name}</h2>
-            <p>Status: {r.status_code}</p>
-            <p>Mettet gevonden: {mettet}</p>
-            <p>Croix gevonden: {croix}</p>
-            """
-
-        except Exception as e:
-
-            html += f"<h2>{name}</h2><p>Fout: {e}</p>"
-
     return html
