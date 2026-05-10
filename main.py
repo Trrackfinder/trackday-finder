@@ -45,13 +45,11 @@ def get_intertrack_events():
                 continue
 
             date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
-
             if not date_match:
                 continue
 
             date = date_match.group()
             circuit = "Mettet" if "mettet" in lower else "Croix"
-
             key = f"{date}-{circuit}-Intertrack"
 
             if key in seen:
@@ -72,6 +70,29 @@ def get_intertrack_events():
     return events
 
 
+def find_trackdays_date(text):
+    lower = text.lower().replace(".", "")
+
+    # Voorbeelden:
+    # 20 jul
+    # 20 - 21 jul
+    # 3 - 4 okt
+    pattern = r"\b(\d{1,2})(?:\s*-\s*\d{1,2})?\s+(jan|feb|mrt|mar|apr|mei|may|jun|jul|aug|sep|okt|oct|nov|dec)\b"
+
+    matches = re.findall(pattern, lower)
+
+    if not matches:
+        return None
+
+    day, month_name = matches[-1]
+    month = MONTHS.get(month_name)
+
+    if not month:
+        return None
+
+    return f"{day.zfill(2)}/{month}/2026"
+
+
 def get_trackdays_events():
     urls = [
         "https://www.trackdays.be/nl",
@@ -88,36 +109,19 @@ def get_trackdays_events():
             soup = BeautifulSoup(r.text, "html.parser")
             lines = [line.strip() for line in soup.get_text("\n").splitlines() if line.strip()]
 
-            current_month = None
-
             for i, line in enumerate(lines):
-                lower = line.lower().replace(".", "")
+                lower = line.lower()
 
-                if lower in MONTHS:
-                    current_month = MONTHS[lower]
-                    continue
-
-                if "track mettet" not in lower and "track croix" not in lower and lower not in ["mettet", "croix"]:
+                if "track mettet" not in lower and "track croix" not in lower:
                     continue
 
                 circuit = "Mettet" if "mettet" in lower else "Croix"
 
-                day = None
+                nearby = " ".join(lines[max(0, i - 8): i + 8])
+                date = find_trackdays_date(nearby)
 
-                for previous in reversed(lines[max(0, i - 8):i]):
-                    previous_clean = previous.strip().lower().replace(".", "")
-
-                    if previous_clean in MONTHS:
-                        current_month = MONTHS[previous_clean]
-
-                    if previous_clean.isdigit():
-                        day = previous_clean.zfill(2)
-                        break
-
-                if not day or not current_month:
+                if not date:
                     continue
-
-                date = f"{day}/{current_month}/2026"
 
                 key = f"{date}-{circuit}-Trackdays.be"
 
@@ -125,8 +129,6 @@ def get_trackdays_events():
                     continue
 
                 seen.add(key)
-
-                nearby = " ".join(lines[max(0, i - 5): i + 6])
 
                 events.append({
                     "date": date,
