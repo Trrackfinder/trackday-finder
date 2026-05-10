@@ -3,4 +3,4 @@ plain text
 fastapi
 uvicorn
 requests
-beatifilsoup4
+beautifulsoup4
