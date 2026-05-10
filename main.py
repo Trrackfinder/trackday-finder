@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
 import requests
+from bs4 import BeautifulSoup
 
 app = FastAPI()
 
@@ -13,39 +14,111 @@ HEADERS = {
 }
 
 
+def get_events():
+
+    url = "https://www.plantrackday.com"
+
+    r = requests.get(
+        url,
+        headers=HEADERS,
+        timeout=10
+    )
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    text = soup.get_text("\n")
+
+    events = []
+
+    for line in text.splitlines():
+
+        clean = line.strip()
+
+        if not clean:
+            continue
+
+        lower = clean.lower()
+
+        if "mettet" in lower:
+
+            events.append({
+                "circuit": "Mettet",
+                "tekst": clean
+            })
+
+        elif "croix" in lower:
+
+            events.append({
+                "circuit": "Croix",
+                "tekst": clean
+            })
+
+    return events
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
 
-    try:
+    events = get_events()
 
-        r = requests.get(
-    "https://www.plantrackday.com",
-    headers=HEADERS,
-    timeout=10
-        )
+    html = """
 
-        text_preview = r.text[:500]
+    <html>
 
-        return f"""
+    <head>
 
-        <html>
-        <body style="font-family:Arial; max-width:800px; margin:auto;">
+    <title>Trackday Finder</title>
 
-        <h1>🏁 Trackday Finder</h1>
+    <style>
 
-        <p>Status code: {r.status_code}</p>
+    body {
+        font-family: Arial;
+        max-width: 900px;
+        margin: auto;
+        padding: 20px;
+        background: #f5f5f5;
+    }
 
-        <h3>Preview:</h3>
+    h1 {
+        color: #111;
+    }
 
-        <pre style="white-space: pre-wrap;">
-{text_preview}
-        </pre>
+    .card {
+        background: white;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 15px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
 
-        </body>
-        </html>
+    </style>
+
+    </head>
+
+    <body>
+
+    <h1>🏁 Trackday Finder</h1>
+
+    """
+
+    if len(events) == 0:
+
+        html += "<p>Geen events gevonden.</p>"
+
+    for e in events:
+
+        html += f"""
+
+        <div class="card">
+
+            <h3>{e['circuit']}</h3>
+
+            <p>{e['tekst']}</p>
+
+        </div>
 
         """
 
-    except Exception as e:
+    html += "</body></html>"
 
-        return f"Error: {e}"
+    return html
