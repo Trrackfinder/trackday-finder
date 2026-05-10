@@ -59,7 +59,7 @@ def get_events():
             circuit = "Croix"
 
         events.append({
-            "date": date,
+            "date": datum,
             "circuit": circuit,
             "organisatie": "Intertrack"
         })
@@ -94,13 +94,14 @@ html += f"""
 
     <h2>{e['circuit']}</h2>
 
-    <p><b>📅 Datum:</b> {e['date']}</p>
+    <p><b>📅 Datum:</b> {e['datum']}</p>
 
     <p><b>🏢 Organisatie:</b> {e['organisatie']}</p>
 
 </div>
 
 """
+
     </style>
 
     </head>
