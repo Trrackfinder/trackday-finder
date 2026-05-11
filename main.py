@@ -9,22 +9,6 @@ app = FastAPI()
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
 
-CIRCUITS = [
-    "Mettet",
-    "Croix",
-    "Croix-en-Ternois",
-    "Spa",
-    "Zandvoort",
-    "Assen",
-    "Zolder",
-    "Ecuyers",
-    "Clastres",
-    "Nürburgring",
-    "Magny-Cours",
-    "Dijon",
-    "Le Mans",
-]
-
 MONTHS = {
     "jan": "01", "feb": "02", "mrt": "03", "mar": "03",
     "apr": "04", "mei": "05", "may": "05", "jun": "06",
@@ -33,22 +17,16 @@ MONTHS = {
 }
 
 
-def detect_circuit(text):
-    lower = text.lower()
-
-    for circuit in CIRCUITS:
-        if circuit.lower() in lower:
-            if circuit == "Croix-en-Ternois":
-                return "Croix"
-            return circuit
-
-    return None
+def clean_circuit_name(name):
+    name = name.replace("track", "").strip()
+    name = name.replace("croix en ternois", "Croix")
+    name = name.replace("croix-en-ternois", "Croix")
+    return name.title()
 
 
 def find_trackdays_date(text):
     lower = text.lower().replace(".", "")
     pattern = r"\b(\d{1,2})(?:\s*-\s*\d{1,2})?\s+(jan|feb|mrt|mar|apr|mei|may|jun|jul|aug|sep|okt|oct|nov|dec)\b"
-
     matches = re.findall(pattern, lower)
 
     if not matches:
@@ -61,6 +39,13 @@ def find_trackdays_date(text):
         return None
 
     return f"{day.zfill(2)}/{month}/2026"
+
+
+def sort_date(date_text):
+    try:
+        return datetime.strptime(date_text, "%d/%m/%Y")
+    except:
+        return datetime.max
 
 
 def get_intertrack_events():
@@ -78,17 +63,23 @@ def get_intertrack_events():
             if not clean:
                 continue
 
-            circuit = detect_circuit(clean)
-
-            if not circuit:
-                continue
-
             date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
 
             if not date_match:
                 continue
 
             date = date_match.group()
+
+            # Voorbeeld: Mon 06/04/2026 - Mettet
+            parts = clean.split("-")
+            if len(parts) >= 2:
+                circuit = clean_circuit_name(parts[-1])
+            else:
+                circuit = "Onbekend"
+
+            if circuit == "Onbekend":
+                continue
+
             key = f"{date}-{circuit}-Intertrack"
 
             if key in seen:
@@ -123,19 +114,15 @@ def get_trackdays_events():
         try:
             r = requests.get(url, headers=HEADERS, timeout=10)
             soup = BeautifulSoup(r.text, "html.parser")
-
-            lines = [
-                line.strip()
-                for line in soup.get_text("\n").splitlines()
-                if line.strip()
-            ]
+            lines = [line.strip() for line in soup.get_text("\n").splitlines() if line.strip()]
 
             for i, line in enumerate(lines):
-                circuit = detect_circuit(line)
+                lower = line.lower()
 
-                if not circuit:
+                if not lower.startswith("track "):
                     continue
 
+                circuit = clean_circuit_name(line)
                 nearby = " ".join(lines[max(0, i - 8): i + 8])
                 date = find_trackdays_date(nearby)
 
@@ -160,13 +147,6 @@ def get_trackdays_events():
             print("Trackdays.be fout:", url, e)
 
     return events
-
-
-def sort_date(date_text):
-    try:
-        return datetime.strptime(date_text, "%d/%m/%Y")
-    except:
-        return datetime.max
 
 
 def get_events():
@@ -300,12 +280,7 @@ def home(q: str = Query(default="")):
         <div class="container">
             <div class="searchbox">
                 <form method="get" action="/">
-                    <input
-                        type="text"
-                        name="q"
-                        placeholder="Zoek circuit of organisatie..."
-                        value="{q}"
-                    >
+                    <input type="text" name="q" placeholder="Zoek circuit of organisatie..." value="{q}">
                     <button type="submit">Zoeken</button>
                 </form>
             </div>
@@ -314,11 +289,7 @@ def home(q: str = Query(default="")):
     """
 
     if len(events) == 0:
-        html += """
-        <div class="card">
-            Geen resultaten gevonden.
-        </div>
-        """
+        html += '<div class="card">Geen resultaten gevonden.</div>'
     else:
         for e in events:
             html += f"""
