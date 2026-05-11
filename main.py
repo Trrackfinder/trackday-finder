@@ -769,7 +769,7 @@ def ics_single_event(
 
             ics = make_ics([event])
 
-            return Response(
+    return Response(
                 content=ics,
                 media_type="text/calendar",
                 headers={
