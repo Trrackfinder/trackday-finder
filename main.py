@@ -1189,11 +1189,18 @@ button:hover {{
     outline: 3px solid #111827;
 }}
 
-@media (max-width: 760px) {{
-    .header {{
-        padding: 22px 12px 16px;
-    }}
+.events-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
 
+@media (max-width: 760px) {
+    .events-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+}
     .header h1 {{
         font-size: 26px;
     }}
@@ -1414,7 +1421,7 @@ button:hover {{
                 f"&organisatie={quote(event['organisatie'])}"
             )
 
-            html_page += f"""
+            html_page += '<div class="events-grid">'
 <div class="card">
     <div class="badge">{event_org}</div>
     <div class="circuit">{event_circuit}</div>
@@ -1437,7 +1444,7 @@ button:hover {{
 </div>
 """
 
-    html_page += """
+    html_page += '</div>'
 </div>
 </body>
 </html>
