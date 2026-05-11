@@ -421,7 +421,7 @@ def get_trackzone_events():
 
 
 def get_trackdays4all_events():
-    url = "https://trackdays4all.nl/circuittrainingen/"
+    url = "https://www.trackdays4all.nl/circuittrainingen/"
     events = []
     seen = set()
 
