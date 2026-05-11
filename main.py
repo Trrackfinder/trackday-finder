@@ -4,6 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import re
 from datetime import datetime, date
+from urllib.parse import urljoin
 
 app = FastAPI()
 
@@ -39,20 +40,6 @@ def find_trackdays_date(text):
         return None
 
     return f"{day.zfill(2)}/{month}/2026"
-
-
-def find_price(text):
-    match = re.search(r"(?:€|â¬)\s*(\d{2,4})", text)
-
-    if match:
-        return f"€ {match.group(1)}"
-
-    match = re.search(r"\b(\d{2,4})\s*(?:euro|eur)\b", text.lower())
-
-    if match:
-        return f"€ {match.group(1)}"
-
-    return "Onbekend"
 
 
 def parse_date(date_text):
@@ -125,57 +112,76 @@ def get_intertrack_events():
 
 
 def get_trackdays_events():
-    urls = [
-        "https://www.trackdays.be/nl",
-        "https://www.trackdays.be/fr",
-        "https://www.trackdays.be/en",
-    ]
-
+    url = "https://www.trackdays.be/nl"
     events = []
     seen = set()
 
-    for url in urls:
-        try:
-            response = requests.get(url, headers=HEADERS, timeout=10)
-            soup = BeautifulSoup(response.text, "html.parser")
-            lines = [
-                line.strip()
-                for line in soup.get_text("\n").splitlines()
-                if line.strip()
-            ]
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
 
-            for i, line in enumerate(lines):
-                lower = line.lower()
+        links = soup.find_all("a")
+        booking_links = []
 
-                if not lower.startswith("track "):
-                    continue
+        for a in links:
+            href = a.get("href")
+            text = a.get_text(" ", strip=True)
 
-                circuit = clean_circuit_name(line)
-                nearby = " ".join(lines[max(0, i - 8): i + 8])
-                date_text = find_trackdays_date(nearby)
+            if not href:
+                continue
 
-                if not date_text:
-                    continue
-
-                key = f"{date_text}-{circuit}-Trackdays.be"
-
-                if key in seen:
-                    continue
-
-                seen.add(key)
-
-                events.append({
-                    "date": date_text,
-                    "date_obj": parse_date(date_text),
-                    "circuit": circuit,
-                    "organisatie": "Trackdays.be",
-                    "price": "Zie organisatie",
-                    "url": url,
-                    "raw": nearby
+            if "/booking/" in href:
+                booking_links.append({
+                    "url": urljoin(url, href),
+                    "text": text
                 })
 
-        except Exception as e:
-            print("Trackdays.be fout:", url, e)
+        text_lines = [
+            line.strip()
+            for line in soup.get_text("\n").splitlines()
+            if line.strip()
+        ]
+
+        booking_index = 0
+
+        for i, line in enumerate(text_lines):
+            lower = line.lower()
+
+            if not lower.startswith("track "):
+                continue
+
+            circuit = clean_circuit_name(line)
+            nearby = " ".join(text_lines[max(0, i - 8): i + 8])
+            date_text = find_trackdays_date(nearby)
+
+            if not date_text:
+                continue
+
+            booking_url = url
+
+            if booking_index < len(booking_links):
+                booking_url = booking_links[booking_index]["url"]
+                booking_index += 1
+
+            key = f"{date_text}-{circuit}-Trackdays.be"
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            events.append({
+                "date": date_text,
+                "date_obj": parse_date(date_text),
+                "circuit": circuit,
+                "organisatie": "Trackdays.be",
+                "price": "Zie organisatie",
+                "url": booking_url,
+                "raw": nearby
+            })
+
+    except Exception as e:
+        print("Trackdays.be fout:", e)
 
     return events
 
@@ -253,10 +259,18 @@ def home(
 
     months_display = [
         ("", "Alle maanden"),
-        ("01", "Januari"), ("02", "Februari"), ("03", "Maart"),
-        ("04", "April"), ("05", "Mei"), ("06", "Juni"),
-        ("07", "Juli"), ("08", "Augustus"), ("09", "September"),
-        ("10", "Oktober"), ("11", "November"), ("12", "December"),
+        ("01", "Januari"),
+        ("02", "Februari"),
+        ("03", "Maart"),
+        ("04", "April"),
+        ("05", "Mei"),
+        ("06", "Juni"),
+        ("07", "Juli"),
+        ("08", "Augustus"),
+        ("09", "September"),
+        ("10", "Oktober"),
+        ("11", "November"),
+        ("12", "December"),
     ]
 
     month_options = ""
@@ -284,6 +298,16 @@ def home(
             color: white;
         }}
 
+        .header h1 {{
+            margin: 0;
+            font-size: 42px;
+        }}
+
+        .header p {{
+            color: #d1d5db;
+            font-size: 18px;
+        }}
+
         .container {{
             max-width: 1150px;
             margin: auto;
@@ -295,6 +319,7 @@ def home(
             padding: 20px;
             border-radius: 16px;
             margin-bottom: 20px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.20);
         }}
 
         .filters {{
@@ -340,6 +365,7 @@ def home(
             padding: 20px;
             border-radius: 16px;
             margin-bottom: 15px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.20);
         }}
 
         .badge {{
@@ -391,9 +417,17 @@ def home(
             font-weight: bold;
         }}
 
+        .link-button:hover {{
+            background: #374151;
+        }}
+
         @media (max-width: 950px) {{
             .filters {{
                 grid-template-columns: 1fr;
+            }}
+
+            .header h1 {{
+                font-size: 34px;
             }}
         }}
     </style>
@@ -409,9 +443,15 @@ def home(
         <div class="searchbox">
             <form method="get" action="/" class="filters">
                 <input type="text" name="q" placeholder="Vrij zoeken..." value="{q}">
-                <select name="circuit">{circuit_options}</select>
-                <select name="organisatie">{organisatie_options}</select>
-                <select name="maand">{month_options}</select>
+                <select name="circuit">
+                    {circuit_options}
+                </select>
+                <select name="organisatie">
+                    {organisatie_options}
+                </select>
+                <select name="maand">
+                    {month_options}
+                </select>
                 <select name="toekomst">
                     <option value="ja" {future_yes}>Alleen toekomst</option>
                     <option value="nee" {future_no}>Alles tonen</option>
@@ -425,7 +465,11 @@ def home(
 """
 
     if len(events) == 0:
-        html += '<div class="card">Geen resultaten gevonden.</div>'
+        html += """
+        <div class="card">
+            Geen resultaten gevonden.
+        </div>
+        """
     else:
         for event in events:
             html += f"""
@@ -447,30 +491,5 @@ def home(
 </body>
 </html>
 """
-@app.get("/links")
-def links():
-
-    import requests
-    from bs4 import BeautifulSoup
-
-    url = "https://www.trackdays.be/nl"
-
-    r = requests.get(url, headers=HEADERS)
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    output = ""
-
-    for a in soup.find_all("a"):
-
-        href = a.get("href")
-
-        text = a.get_text(strip=True)
-
-        if href:
-
-            output += f"<p>{text} --> {href}</p>"
-
-    return HTMLResponse(output)
 
     return html
