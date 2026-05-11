@@ -113,7 +113,7 @@ def get_intertrack_events():
                 "date_obj": parse_date(date_text),
                 "circuit": circuit,
                 "organisatie": "Intertrack",
-                "price": find_price(clean),
+                "price": "Zie organisatie",
                 "url": source_url,
                 "raw": clean
             })
@@ -169,7 +169,7 @@ def get_trackdays_events():
                     "date_obj": parse_date(date_text),
                     "circuit": circuit,
                     "organisatie": "Trackdays.be",
-                    "price": find_price(nearby),
+                    "price": "Zie organisatie",
                     "url": url,
                     "raw": nearby
                 })
