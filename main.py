@@ -339,15 +339,41 @@ def home(
         <div class="container">
             <div class="searchbox">
                 <form method="get" action="/" class="filters">
-                    <input type="text" name="q" placeholder="Vrij zoeken..." value="{q}">
-                    <select name="circuit">
-                        {circuit_options}
-                    </select>
-                    <select name="organisatie">
-                        {organisatie_options}
-                    </select>
-                    <button type="submit">Zoeken</button>
-                </form>
+
+    <input
+        type="text"
+        name="q"
+        placeholder="Vrij zoeken..."
+        value="{q}"
+    >
+
+    <select name="circuit">
+        {circuit_options}
+    </select>
+
+    <select name="organisatie">
+        {organisatie_options}
+    </select>
+
+    <select name="maand">
+        {month_options}
+    </select>
+
+    <select name="toekomst">
+        <option value="ja" {future_yes}>
+            Alleen toekomst
+        </option>
+
+        <option value="nee" {future_no}>
+            Alles tonen
+        </option>
+    </select>
+
+    <button type="submit">
+        Zoeken
+    </button>
+
+</form>
                 <a class="reset" href="/">Filters wissen</a>
             </div>
 
