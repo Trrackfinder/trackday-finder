@@ -421,47 +421,89 @@ def get_trackzone_events():
 
 
 def get_trackdays4all_events():
+
     url = "https://www.trackdays4all.nl/circuittrainingen/"
+
     events = []
-    seen = set()
 
     try:
-        response = requests.get(
+
+        session = requests.Session()
+
+        response = session.get(
             url,
-            headers=HEADERS,
-            timeout=15,
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/122.0.0.0 Safari/537.36"
+                ),
+                "Accept": (
+                    "text/html,application/xhtml+xml,"
+                    "application/xml;q=0.9,image/webp,*/*;q=0.8"
+                ),
+                "Accept-Language": "nl-NL,nl;q=0.9,en;q=0.8",
+                "Referer": "https://www.google.com/",
+                "Connection": "keep-alive",
+                "Upgrade-Insecure-Requests": "1",
+            },
+            timeout=20,
             allow_redirects=True
         )
+
+        if response.status_code == 403:
+            print("Trackdays4all geblokkeerd door anti-bot bescherming")
+            return []
+
         response.raise_for_status()
+
         soup = BeautifulSoup(response.text, "html.parser")
 
+        text = clean_bad_encoding(
+            soup.get_text("\n")
+        )
+
         lines = [
-            clean_bad_encoding(line.strip())
-            for line in soup.get_text("\n").splitlines()
+            line.strip()
+            for line in text.splitlines()
             if line.strip()
         ]
 
         known_circuits = [
-            "assen", "ecuyers", "écuyers", "val de vienne", "zolder",
-            "spa", "mettet", "croix", "meppen", "zandvoort"
+            "assen",
+            "ecuyers",
+            "écuyers",
+            "val de vienne",
+            "zolder",
+            "spa",
+            "mettet",
+            "croix",
+            "meppen",
+            "zandvoort",
         ]
 
+        seen = set()
+
         for i, line in enumerate(lines):
+
             date_text = find_text_date(line)
 
             if not date_text:
                 continue
 
             block = lines[max(0, i - 5):i + 8]
+
             block_text = " ".join(block)
 
             circuit = None
 
             for b in block:
-                b_lower = b.lower()
+
+                lower = b.lower()
 
                 for known in known_circuits:
-                    if known in b_lower:
+
+                    if known in lower:
                         circuit = clean_circuit_name(known)
                         break
 
@@ -471,7 +513,7 @@ def get_trackdays4all_events():
             if not circuit:
                 continue
 
-            key = f"{date_text}-{circuit}-Trackdays4all"
+            key = f"{date_text}-{circuit}"
 
             if key in seen:
                 continue
@@ -492,7 +534,6 @@ def get_trackdays4all_events():
         print("Trackdays4all fout:", e)
 
     return events
-
 
 def scrape_events():
     events = []
