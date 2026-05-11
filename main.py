@@ -243,11 +243,11 @@ def home(
                 margin-bottom: 20px;
             }}
 
-            .filters {
-    display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto;
-    gap: 10px;
-}
+            .filters {{
+                display: grid;
+                grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto;
+                gap: 10px;
+            }}
 
             input, select {{
                 padding: 15px;
