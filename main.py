@@ -1354,7 +1354,7 @@ button:hover {{
 <div class="container">
 
     <div class="searchbox">
-        <details>
+        <details open>
             <summary class="mobile-summary">Filters en snelle keuzes</summary>
 
             <form method="get" action="/" class="filters">
