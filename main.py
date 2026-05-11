@@ -969,9 +969,10 @@ body {{
 .searchbox,
 .calendar-box {{
     background: white;
-    padding: 16px;
+    padding: 14px;
     border-radius: 16px;
-    margin-bottom: 18px;
+    margin: 0 auto 18px auto;
+    max-width: 720px;
 }}
 
 .searchbox {{
@@ -1161,7 +1162,7 @@ button {{
 }}
 
 .calendar-cell {{
-    min-height: 52px;
+    min-height: 42px;
     background: #f3f4f6;
     border-radius: 10px;
     padding: 7px;
@@ -1279,7 +1280,7 @@ button {{
     }}
 
     .calendar-cell {{
-        min-height: 34px;
+        min-height: 30px;
         padding: 4px;
         border-radius: 7px;
         font-size: 11px;
