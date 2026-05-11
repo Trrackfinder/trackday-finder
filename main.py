@@ -1,12 +1,13 @@
 from fastapi import FastAPI, Query
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 import requests
 from bs4 import BeautifulSoup
 import re
 import time
 import html
-from datetime import datetime, date
-from urllib.parse import urljoin
+import calendar
+from datetime import datetime, date, timedelta
+from urllib.parse import urljoin, quote
 
 app = FastAPI()
 
@@ -34,24 +35,25 @@ MONTHS = {
     "november": "11", "december": "12",
 }
 
+DUTCH_MONTHS = [
+    "", "januari", "februari", "maart", "april", "mei", "juni",
+    "juli", "augustus", "september", "oktober", "november", "december"
+]
+
 CIRCUIT_ALIASES = {
     "spa-francorchamps": "Spa-Francorchamps",
     "spa francorchamps": "Spa-Francorchamps",
     "francorchamps": "Spa-Francorchamps",
     "circuit de spa": "Spa-Francorchamps",
     "spa": "Spa-Francorchamps",
-
     "circuit zolder": "Zolder",
     "zolder circuit": "Zolder",
     "zolder": "Zolder",
-
     "ecuyers": "Ecuyers",
     "écuyers": "Ecuyers",
-
     "croix en ternois": "Croix",
     "croix-en-ternois": "Croix",
     "croix": "Croix",
-
     "mettet": "Mettet",
     "assen": "Assen",
     "zandvoort": "Zandvoort",
@@ -105,11 +107,7 @@ def get_month_number(date_text):
 def format_date(date_text):
     try:
         d = datetime.strptime(date_text, "%d/%m/%Y").date()
-        maanden = [
-            "", "januari", "februari", "maart", "april", "mei", "juni",
-            "juli", "augustus", "september", "oktober", "november", "december"
-        ]
-        return f"{d.day} {maanden[d.month]} {d.year}"
+        return f"{d.day} {DUTCH_MONTHS[d.month]} {d.year}"
     except Exception:
         return date_text
 
@@ -146,8 +144,8 @@ def get_intertrack_events():
 
         for line in text.splitlines():
             clean = clean_bad_encoding(line.strip())
-
             date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
+
             if not date_match:
                 continue
 
@@ -205,19 +203,14 @@ def detect_trackdays_circuit(block_text):
 
         if "€" in line:
             continue
-
         if "euro" in lower:
             continue
-
         if lower in skip_words:
             continue
-
         if re.search(r"\d", line):
             continue
-
         if len(line) < 3:
             continue
-
         if line in ["-", "–", "_"]:
             continue
 
@@ -295,19 +288,9 @@ def get_circuitdagen_events():
     seen = set()
 
     skip_texts = [
-        "info",
-        "this is your heading text",
-        "heading",
-        "boeken",
-        "beschikbaar",
-        "plekken",
-        "vrij rijden",
-        "karting",
-        "video laden",
-        "groepen",
-        "sessies",
-        "instructie",
-        "vanaf",
+        "info", "this is your heading text", "heading", "boeken",
+        "beschikbaar", "plekken", "vrij rijden", "karting",
+        "video laden", "groepen", "sessies", "instructie", "vanaf",
     ]
 
     try:
@@ -348,16 +331,12 @@ def get_circuitdagen_events():
 
                 if not clean_item:
                     continue
-
                 if "€" in clean_item:
                     continue
-
                 if re.search(r"\d", clean_item):
                     continue
-
                 if len(clean_item) < 3:
                     continue
-
                 if any(skip in lower for skip in skip_texts):
                     continue
 
@@ -586,6 +565,102 @@ def option_html(value, label, selected_value):
     return f'<option value="{html.escape(value)}" {selected}>{html.escape(label)}</option>'
 
 
+def event_to_ics(event):
+    start = event["date_obj"]
+    end = start + timedelta(days=1)
+    uid = f"{event['date']}-{event['circuit']}-{event['organisatie']}@trackday-finder"
+
+    return f"""BEGIN:VEVENT
+UID:{uid}
+DTSTAMP:{datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")}
+DTSTART;VALUE=DATE:{start.strftime("%Y%m%d")}
+DTEND;VALUE=DATE:{end.strftime("%Y%m%d")}
+SUMMARY:Trackday - {event["circuit"]} ({event["organisatie"]})
+DESCRIPTION:Organisatie: {event["organisatie"]}\\nCircuit: {event["circuit"]}\\nPrijs: {event["price"]}\\nLink: {event["url"]}
+URL:{event["url"]}
+END:VEVENT
+"""
+
+
+def make_ics(events):
+    body = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//Trackday Finder//NL\n"
+    for event in events:
+        if event["date_obj"] != date.max:
+            body += event_to_ics(event)
+    body += "END:VCALENDAR\n"
+    return body
+
+
+def build_calendar(events, cal_year, cal_month, selected_day):
+    event_days = {}
+
+    for event in events:
+        d = event["date_obj"]
+        if d.year == cal_year and d.month == cal_month:
+            event_days.setdefault(d.day, []).append(event)
+
+    prev_month = cal_month - 1
+    prev_year = cal_year
+    if prev_month == 0:
+        prev_month = 12
+        prev_year -= 1
+
+    next_month = cal_month + 1
+    next_year = cal_year
+    if next_month == 13:
+        next_month = 1
+        next_year += 1
+
+    html_cal = f"""
+<div class="calendar-box">
+    <div class="calendar-header">
+        <a href="/?cal_year={prev_year}&cal_month={prev_month}">←</a>
+        <h2>{DUTCH_MONTHS[cal_month].capitalize()} {cal_year}</h2>
+        <a href="/?cal_year={next_year}&cal_month={next_month}">→</a>
+    </div>
+
+    <div class="calendar-grid calendar-days">
+        <div>Ma</div><div>Di</div><div>Wo</div><div>Do</div><div>Vr</div><div>Za</div><div>Zo</div>
+    </div>
+
+    <div class="calendar-grid">
+"""
+
+    month_calendar = calendar.Calendar(firstweekday=0).monthdayscalendar(cal_year, cal_month)
+
+    for week in month_calendar:
+        for day in week:
+            if day == 0:
+                html_cal += '<div class="calendar-cell empty"></div>'
+                continue
+
+            events_today = event_days.get(day, [])
+            day_date = date(cal_year, cal_month, day).isoformat()
+            selected_class = "selected-day" if selected_day == day_date else ""
+
+            if events_today:
+                title = ", ".join([f'{e["organisatie"]} - {e["circuit"]}' for e in events_today])
+                html_cal += f"""
+<a class="calendar-cell has-events {selected_class}" href="/?dag={day_date}&cal_year={cal_year}&cal_month={cal_month}" title="{html.escape(title)}">
+    <span>{day}</span>
+    <small>{len(events_today)} event(s)</small>
+</a>
+"""
+            else:
+                html_cal += f"""
+<div class="calendar-cell {selected_class}">
+    <span>{day}</span>
+</div>
+"""
+
+    html_cal += """
+    </div>
+</div>
+"""
+
+    return html_cal
+
+
 @app.get("/health")
 def health():
     return {"status": "ok"}
@@ -609,6 +684,42 @@ def api_events():
     ]
 
 
+@app.get("/ics")
+def ics_export():
+    events = [e for e in get_events() if e["date_obj"] >= date.today()]
+    ics = make_ics(events)
+
+    return Response(
+        content=ics,
+        media_type="text/calendar",
+        headers={"Content-Disposition": "attachment; filename=trackdays.ics"},
+    )
+
+
+@app.get("/ics/event")
+def ics_single_event(
+    event_date: str = Query(...),
+    circuit: str = Query(...),
+    organisatie: str = Query(...),
+):
+    events = get_events()
+
+    for event in events:
+        if (
+            event["date"] == event_date
+            and event["circuit"] == circuit
+            and event["organisatie"] == organisatie
+        ):
+            ics = make_ics([event])
+            return Response(
+                content=ics,
+                media_type="text/calendar",
+                headers={"Content-Disposition": "attachment; filename=trackday.ics"},
+            )
+
+    return Response(content="Event niet gevonden", status_code=404)
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(
     q: str = Query(default=""),
@@ -617,6 +728,9 @@ def home(
     maand: str = Query(default=""),
     toekomst: str = Query(default="ja"),
     sort: str = Query(default="date"),
+    dag: str = Query(default=""),
+    cal_year: int = Query(default=date.today().year),
+    cal_month: int = Query(default=date.today().month),
 ):
     all_events = get_events()
 
@@ -628,6 +742,13 @@ def home(
     if toekomst == "ja":
         today = date.today()
         events = [e for e in events if e["date_obj"] >= today]
+
+    if dag:
+        try:
+            selected_date = datetime.strptime(dag, "%Y-%m-%d").date()
+            events = [e for e in events if e["date_obj"] == selected_date]
+        except Exception:
+            pass
 
     if q.strip():
         search = q.strip().lower()
@@ -691,6 +812,11 @@ def home(
     future_no = "selected" if toekomst == "nee" else ""
 
     safe_q = html.escape(q)
+    calendar_html = build_calendar(all_events, cal_year, cal_month, dag)
+
+    selected_day_text = ""
+    if dag:
+        selected_day_text = f'<p class="selected-info">Geselecteerde dag: {html.escape(dag)} — <a href="/">toon alles</a></p>'
 
     html_page = f"""
 <!DOCTYPE html>
@@ -717,11 +843,14 @@ body {{
     padding: 20px;
 }}
 
-.searchbox {{
+.searchbox, .calendar-box {{
     background: white;
     padding: 20px;
     border-radius: 16px;
     margin-bottom: 20px;
+}}
+
+.searchbox {{
     position: sticky;
     top: 0;
     z-index: 100;
@@ -757,7 +886,7 @@ button:hover {{
     background: #dc2626;
 }}
 
-.reset {{
+.reset, .ics-all {{
     display: inline-block;
     margin-top: 12px;
     color: #ef4444;
@@ -765,9 +894,23 @@ button:hover {{
     font-weight: bold;
 }}
 
+.ics-all {{
+    margin-left: 18px;
+    color: #111827;
+}}
+
 .count {{
     color: white;
     margin-bottom: 15px;
+}}
+
+.selected-info {{
+    color: white;
+    font-weight: bold;
+}}
+
+.selected-info a {{
+    color: #fca5a5;
 }}
 
 .card {{
@@ -815,7 +958,7 @@ button:hover {{
     line-height: 1.4;
 }}
 
-.link-button {{
+.link-button, .ics-button {{
     display: inline-block;
     margin-top: 14px;
     padding: 10px 14px;
@@ -826,8 +969,83 @@ button:hover {{
     font-weight: bold;
 }}
 
+.ics-button {{
+    background: #065f46;
+    margin-left: 8px;
+}}
+
 .link-button:hover {{
     background: #374151;
+}}
+
+.ics-button:hover {{
+    background: #047857;
+}}
+
+.calendar-header {{
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}}
+
+.calendar-header a {{
+    font-size: 28px;
+    text-decoration: none;
+    color: #ef4444;
+    font-weight: bold;
+}}
+
+.calendar-header h2 {{
+    margin: 0 0 15px 0;
+}}
+
+.calendar-grid {{
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 8px;
+}}
+
+.calendar-days div {{
+    font-weight: bold;
+    text-align: center;
+    padding: 8px;
+}}
+
+.calendar-cell {{
+    min-height: 75px;
+    background: #f3f4f6;
+    border-radius: 12px;
+    padding: 10px;
+    text-decoration: none;
+    color: #111827;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}}
+
+.calendar-cell span {{
+    font-weight: bold;
+}}
+
+.calendar-cell small {{
+    font-size: 12px;
+}}
+
+.calendar-cell.empty {{
+    background: transparent;
+}}
+
+.calendar-cell.has-events {{
+    background: #fee2e2;
+    border: 2px solid #ef4444;
+}}
+
+.calendar-cell.has-events:hover {{
+    background: #fecaca;
+}}
+
+.selected-day {{
+    outline: 3px solid #111827;
 }}
 
 @media (max-width: 1050px) {{
@@ -837,6 +1055,15 @@ button:hover {{
 
     .searchbox {{
         position: static;
+    }}
+
+    .calendar-cell {{
+        min-height: 55px;
+        padding: 7px;
+    }}
+
+    .calendar-cell small {{
+        font-size: 10px;
     }}
 }}
 </style>
@@ -864,7 +1091,12 @@ button:hover {{
         </form>
 
         <a class="reset" href="/">Filters wissen</a>
+        <a class="ics-all" href="/ics">Download alle toekomstige trackdays (.ics)</a>
     </div>
+
+    {calendar_html}
+
+    {selected_day_text}
 
     <p class="count">Resultaten: {len(events)}</p>
 """
@@ -884,6 +1116,12 @@ button:hover {{
             event_raw = html.escape(event["raw"])
             event_url = html.escape(event["url"])
 
+            ics_url = (
+                f"/ics/event?event_date={quote(event['date'])}"
+                f"&circuit={quote(event['circuit'])}"
+                f"&organisatie={quote(event['organisatie'])}"
+            )
+
             html_page += f"""
     <div class="card">
         <div class="badge">{event_org}</div>
@@ -894,6 +1132,9 @@ button:hover {{
         <div class="raw">{event_raw}</div>
         <a class="link-button" href="{event_url}" target="_blank">
             Bekijk / boeken bij {event_org}
+        </a>
+        <a class="ics-button" href="{ics_url}">
+            Zet in agenda
         </a>
     </div>
 """
