@@ -945,7 +945,7 @@ body {{
 }}
 
 .header {{
-    padding: 34px 16px 24px;
+    padding: 28px 16px 20px;
     text-align: center;
     color: white;
 }}
@@ -963,15 +963,15 @@ body {{
 .container {{
     max-width: 1150px;
     margin: auto;
-    padding: 20px;
+    padding: 18px;
 }}
 
 .searchbox,
 .calendar-box {{
     background: white;
-    padding: 20px;
+    padding: 16px;
     border-radius: 16px;
-    margin-bottom: 20px;
+    margin-bottom: 18px;
 }}
 
 .searchbox {{
@@ -992,27 +992,23 @@ body {{
 
 input,
 select {{
-    padding: 15px;
+    padding: 14px;
     border-radius: 10px;
     border: 1px solid #ddd;
-    font-size: 16px;
+    font-size: 15px;
     width: 100%;
     box-sizing: border-box;
 }}
 
 button {{
-    padding: 15px 25px;
+    padding: 14px 22px;
     border: none;
     border-radius: 10px;
     background: #ef4444;
     color: white;
-    font-size: 16px;
+    font-size: 15px;
     font-weight: bold;
     cursor: pointer;
-}}
-
-button:hover {{
-    background: #dc2626;
 }}
 
 .reset,
@@ -1030,7 +1026,7 @@ button:hover {{
 }}
 
 .quick-filters {{
-    margin-top: 18px;
+    margin-top: 16px;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -1039,10 +1035,10 @@ button:hover {{
 .quick-filters a {{
     background: #111827;
     color: white;
-    padding: 10px 14px;
+    padding: 9px 13px;
     border-radius: 999px;
     text-decoration: none;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: bold;
 }}
 
@@ -1060,11 +1056,17 @@ button:hover {{
     color: #fca5a5;
 }}
 
+.events-grid {{
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}}
+
 .card {{
     background: white;
-    padding: 20px;
+    padding: 18px;
     border-radius: 16px;
-    margin-bottom: 15px;
+    margin-bottom: 0;
 }}
 
 .badge {{
@@ -1073,13 +1075,13 @@ button:hover {{
     color: #991b1b;
     padding: 6px 10px;
     border-radius: 999px;
-    font-size: 13px;
+    font-size: 12px;
     font-weight: bold;
     margin-bottom: 10px;
 }}
 
 .circuit {{
-    font-size: 28px;
+    font-size: 26px;
     font-weight: bold;
     margin-bottom: 10px;
 }}
@@ -1134,33 +1136,35 @@ button:hover {{
 }}
 
 .calendar-header a {{
-    font-size: 28px;
+    font-size: 24px;
     text-decoration: none;
     color: #ef4444;
     font-weight: bold;
 }}
 
 .calendar-header h2 {{
-    margin: 0 0 15px 0;
+    margin: 0 0 10px 0;
+    font-size: 22px;
 }}
 
 .calendar-grid {{
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    gap: 8px;
+    gap: 6px;
 }}
 
 .calendar-days div {{
     font-weight: bold;
     text-align: center;
-    padding: 8px;
+    padding: 5px;
+    font-size: 13px;
 }}
 
 .calendar-cell {{
-    min-height: 75px;
+    min-height: 52px;
     background: #f3f4f6;
-    border-radius: 12px;
-    padding: 10px;
+    border-radius: 10px;
+    padding: 7px;
     text-decoration: none;
     color: #111827;
     display: flex;
@@ -1173,7 +1177,7 @@ button:hover {{
 }}
 
 .calendar-cell small {{
-    font-size: 12px;
+    font-size: 11px;
 }}
 
 .calendar-cell.empty {{
@@ -1189,18 +1193,11 @@ button:hover {{
     outline: 3px solid #111827;
 }}
 
-.events-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 15px;
-}
+@media (max-width: 760px) {{
+    .header {{
+        padding: 22px 12px 16px;
+    }}
 
-@media (max-width: 760px) {
-    .events-grid {
-        grid-template-columns: 1fr;
-        gap: 12px;
-    }
-}
     .header h1 {{
         font-size: 26px;
     }}
@@ -1228,10 +1225,6 @@ button:hover {{
         font-weight: bold;
         cursor: pointer;
         margin-bottom: 12px;
-    }}
-
-    details[open] .mobile-summary {{
-        margin-bottom: 14px;
     }}
 
     .filters {{
@@ -1264,16 +1257,16 @@ button:hover {{
     }}
 
     .calendar-box {{
-        padding: 12px;
+        padding: 10px;
         border-radius: 14px;
     }}
 
     .calendar-header h2 {{
-        font-size: 20px;
+        font-size: 18px;
     }}
 
     .calendar-header a {{
-        font-size: 24px;
+        font-size: 22px;
     }}
 
     .calendar-grid {{
@@ -1281,29 +1274,33 @@ button:hover {{
     }}
 
     .calendar-days div {{
-        font-size: 12px;
-        padding: 4px;
+        font-size: 11px;
+        padding: 3px;
     }}
 
     .calendar-cell {{
-        min-height: 42px;
-        padding: 5px;
-        border-radius: 8px;
-        font-size: 12px;
+        min-height: 34px;
+        padding: 4px;
+        border-radius: 7px;
+        font-size: 11px;
     }}
 
     .calendar-cell small {{
-        font-size: 10px;
+        font-size: 9px;
     }}
 
     .calendar-cell.has-events {{
         border-width: 1px;
     }}
 
+    .events-grid {{
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }}
+
     .card {{
         padding: 15px;
         border-radius: 14px;
-        margin-bottom: 12px;
     }}
 
     .badge {{
@@ -1407,6 +1404,8 @@ button:hover {{
 </div>
 """
     else:
+        html_page += '<div class="events-grid">'
+
         for event in events:
             event_org = html.escape(event["organisatie"])
             event_circuit = html.escape(event["circuit"])
@@ -1421,7 +1420,7 @@ button:hover {{
                 f"&organisatie={quote(event['organisatie'])}"
             )
 
-            html_page += '<div class="events-grid">'
+            html_page += f"""
 <div class="card">
     <div class="badge">{event_org}</div>
     <div class="circuit">{event_circuit}</div>
@@ -1444,7 +1443,9 @@ button:hover {{
 </div>
 """
 
-    html_page += '</div>'
+        html_page += '</div>'
+
+    html_page += """
 </div>
 </body>
 </html>
