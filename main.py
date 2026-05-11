@@ -34,6 +34,8 @@ def clean_bad_encoding(text):
         .replace("â‚¬", "€")
         .replace("â�¬", "€")
         .replace("□", "")
+        .replace("¬", "")
+        .replace("\xa0", " ")
         .strip()
     )
 
