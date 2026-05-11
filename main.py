@@ -779,8 +779,8 @@ def ics_single_event(
             )
 
     return Response(content="Event niet gevonden", status_code=404)
-    @app.get("/", response_class=HTMLResponse)
-
+    
+@app.get("/", response_class=HTMLResponse)
 def home(
     q: str = Query(default=""),
     circuit: str = Query(default=""),
