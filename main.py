@@ -9,7 +9,10 @@ from urllib.parse import urljoin
 
 app = FastAPI()
 
-HEADERS = {"User-Agent": "Mozilla/5.0"}
+HEADERS = {
+    "User-Agent": "Mozilla/5.0"
+}
+
 CACHE_SECONDS = 900
 _cache = {"time": 0, "events": []}
 
@@ -25,12 +28,33 @@ MONTHS = {
 }
 
 
+def clean_bad_encoding(text):
+    return (
+        text.replace("Â", "")
+        .replace("â‚¬", "€")
+        .replace("â�¬", "€")
+        .replace("□", "")
+        .strip()
+    )
+
+
 def clean_circuit_name(name):
+    name = clean_bad_encoding(name)
     name = name.lower()
-    name = name.replace("track", "").strip()
-    name = name.replace("croix en ternois", "Croix")
-    name = name.replace("croix-en-ternois", "Croix")
-    return name.title()
+
+    replacements = {
+        "track": "",
+        "croix en ternois": "Croix",
+        "croix-en-ternois": "Croix",
+        "circuit de spa-francorchamps": "Spa-Francorchamps",
+        "spa francorchamps": "Spa-Francorchamps",
+        "zolder circuit": "Zolder",
+    }
+
+    for old, new in replacements.items():
+        name = name.replace(old, new)
+
+    return name.strip().title()
 
 
 def parse_date(date_text):
@@ -50,17 +74,21 @@ def get_month_number(date_text):
 def format_date(date_text):
     try:
         d = datetime.strptime(date_text, "%d/%m/%Y").date()
+
         maanden = [
-            "", "januari", "februari", "maart", "april", "mei", "juni",
-            "juli", "augustus", "september", "oktober", "november", "december"
+            "", "januari", "februari", "maart", "april",
+            "mei", "juni", "juli", "augustus",
+            "september", "oktober", "november", "december"
         ]
+
         return f"{d.day} {maanden[d.month]} {d.year}"
+
     except Exception:
         return date_text
 
 
 def find_text_date(text):
-    lower = text.lower().replace(".", "")
+    lower = clean_bad_encoding(text.lower()).replace(".", "")
 
     pattern = r"\b(\d{1,2})(?:\s*(?:-|&)\s*\d{1,2})?\s+(jan|feb|mrt|mar|apr|mei|may|jun|jul|aug|sep|okt|oct|nov|dec|januari|februari|maart|april|juni|juli|augustus|september|oktober|november|december)\s*(2026)?\b"
 
@@ -70,6 +98,7 @@ def find_text_date(text):
         return None
 
     day, month_name, year = matches[-1]
+
     month = MONTHS.get(month_name)
 
     if not month:
@@ -81,6 +110,7 @@ def find_text_date(text):
 def get_intertrack_events():
     events = []
     seen = set()
+
     source_url = "https://www.inter-track.be"
 
     try:
@@ -88,25 +118,31 @@ def get_intertrack_events():
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
+
         text = soup.get_text("\n")
 
         for line in text.splitlines():
-            clean = line.strip()
+            clean = clean_bad_encoding(line.strip())
+
             if not clean:
                 continue
 
             date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
+
             if not date_match:
                 continue
 
             date_text = date_match.group()
+
             parts = clean.split("-")
+
             circuit = clean_circuit_name(parts[-1]) if len(parts) >= 2 else "Onbekend"
 
             if circuit == "Onbekend":
                 continue
 
             key = f"{date_text}-{circuit}-Intertrack"
+
             if key in seen:
                 continue
 
@@ -129,37 +165,41 @@ def get_intertrack_events():
 
 
 def detect_trackdays_circuit(block_text):
-    lines = [line.strip() for line in block_text.split("\n") if line.strip()]
+    lines = [
+        clean_bad_encoding(line.strip())
+        for line in block_text.split("\n")
+        if line.strip()
+    ]
 
     skip_words = [
-        "boeken", "promotie", "vrijdag", "zaterdag", "zondag", "maandag",
-        "dinsdag", "woensdag", "donderdag", "hemelvaart weekend",
-        "nationale feestdag"
+        "boeken", "promotie", "vrijdag", "zaterdag", "zondag",
+        "maandag", "dinsdag", "woensdag", "donderdag",
+        "hemelvaart weekend", "nationale feestdag"
     ]
 
     for line in reversed(lines):
         lower = line.lower()
 
-        if lower.startswith("track "):
-            return clean_circuit_name(line)
-
-        if "€" in line or "â�¬" in line:
-            continue
-
-        if re.search(r"\d", line):
+        if "€" in line:
             continue
 
         if lower in skip_words:
             continue
 
-        if len(line) > 2:
-            return clean_circuit_name(line)
+        if re.search(r"\d", line):
+            continue
+
+        if len(line) < 3:
+            continue
+
+        return clean_circuit_name(line)
 
     return None
 
 
 def get_trackdays_events():
     url = "https://www.trackdays.be/nl"
+
     events = []
     seen = set()
 
@@ -170,7 +210,7 @@ def get_trackdays_events():
         soup = BeautifulSoup(response.text, "html.parser")
 
         all_text_lines = [
-            line.strip()
+            clean_bad_encoding(line.strip())
             for line in soup.get_text("\n").splitlines()
             if line.strip()
         ]
@@ -186,13 +226,17 @@ def get_trackdays_events():
         ]
 
         for index, a in enumerate(booking_links):
+
             if index >= len(booking_positions):
                 continue
 
             href = a.get("href")
             booking_url = urljoin(url, href)
+
             pos = booking_positions[index]
+
             nearby_lines = all_text_lines[max(0, pos - 12):pos + 1]
+
             nearby = "\n".join(nearby_lines)
 
             date_text = find_text_date(nearby)
@@ -201,7 +245,8 @@ def get_trackdays_events():
             if not date_text or not circuit:
                 continue
 
-            key = f"{date_text}-{circuit}-Trackdays.be-{booking_url}"
+            key = f"{date_text}-{circuit}-Trackdays-{booking_url}"
+
             if key in seen:
                 continue
 
@@ -223,38 +268,9 @@ def get_trackdays_events():
     return events
 
 
-def detect_circuitdagen_circuit(block_lines):
-    skip = [
-        "info & boeken", "vanaf", "groepen", "sessies", "instructie",
-        "plekken", "beschikbaar", "bochten", "heading", "video laden"
-    ]
-
-    for line in block_lines:
-        clean = line.strip()
-        lower = clean.lower()
-
-        if not clean:
-            continue
-
-        if any(word in lower for word in skip):
-            continue
-
-        if "€" in clean:
-            continue
-
-        if re.search(r"\d", clean):
-            continue
-
-        if len(clean) < 3:
-            continue
-
-        return clean_circuit_name(clean)
-
-    return None
-
-
 def get_circuitdagen_events():
     url = "https://circuitdagen.be"
+
     events = []
     seen = set()
 
@@ -265,39 +281,51 @@ def get_circuitdagen_events():
         soup = BeautifulSoup(response.text, "html.parser")
 
         lines = [
-            line.strip().replace("###", "").strip()
+            clean_bad_encoding(line.strip())
             for line in soup.get_text("\n").splitlines()
             if line.strip()
         ]
 
-        info_positions = [
-            i for i, line in enumerate(lines)
-            if "info & boeken" in line.lower()
-        ]
+        for i, line in enumerate(lines):
 
-        info_links = [
-            a for a in soup.find_all("a")
-            if "info" in a.get_text(" ", strip=True).lower()
-            and "boeken" in a.get_text(" ", strip=True).lower()
-        ]
-
-        for index, pos in enumerate(info_positions):
-            block_lines = lines[max(0, pos - 12):pos + 1]
-            block_text = " ".join(block_lines)
-
-            date_text = find_text_date(block_text)
-            circuit = detect_circuitdagen_circuit(block_lines)
-
-            if not date_text or not circuit:
+            if "info & boeken" not in line.lower():
                 continue
 
-            event_url = url
-            if index < len(info_links):
-                href = info_links[index].get("href")
-                if href:
-                    event_url = urljoin(url, href)
+            block = lines[max(0, i - 10):i + 1]
 
-            key = f"{date_text}-{circuit}-Circuitdagen.be-{event_url}"
+            block_text = " ".join(block)
+
+            date_text = find_text_date(block_text)
+
+            if not date_text:
+                continue
+
+            circuit = None
+
+            for item in reversed(block):
+
+                lower = item.lower()
+
+                if "€" in item:
+                    continue
+
+                if re.search(r"\d", item):
+                    continue
+
+                if len(item) < 3:
+                    continue
+
+                if "info" in lower:
+                    continue
+
+                circuit = clean_circuit_name(item)
+                break
+
+            if not circuit:
+                continue
+
+            key = f"{date_text}-{circuit}-Circuitdagen"
+
             if key in seen:
                 continue
 
@@ -309,44 +337,125 @@ def get_circuitdagen_events():
                 "circuit": circuit,
                 "organisatie": "Circuitdagen.be",
                 "price": "Zie organisatie",
-                "url": event_url,
+                "url": url,
                 "raw": block_text
             })
 
     except Exception as e:
-        print("Circuitdagen.be fout:", e)
+        print("Circuitdagen fout:", e)
+
+    return events
+
+
+def get_trackzone_events():
+    url = "https://trackzone.nl/"
+
+    events = []
+    seen = set()
+
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        lines = [
+            clean_bad_encoding(line.strip())
+            for line in soup.get_text("\n").splitlines()
+            if line.strip()
+        ]
+
+        for i, line in enumerate(lines):
+
+            date_text = find_text_date(line)
+
+            if not date_text:
+                continue
+
+            block_lines = lines[i:i + 8]
+
+            block_text = " ".join(block_lines)
+
+            circuit = None
+
+            for b in block_lines:
+
+                lower = b.lower()
+
+                if "meppen" in lower:
+                    circuit = "Meppen"
+
+                elif "ecuyers" in lower or "écuyers" in lower:
+                    circuit = "Ecuyers"
+
+                elif "zolder" in lower:
+                    circuit = "Zolder"
+
+                elif "spa" in lower:
+                    circuit = "Spa-Francorchamps"
+
+            if not circuit:
+                continue
+
+            key = f"{date_text}-{circuit}-Trackzone"
+
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            events.append({
+                "date": date_text,
+                "date_obj": parse_date(date_text),
+                "circuit": circuit,
+                "organisatie": "Trackzone.nl",
+                "price": "Zie organisatie",
+                "url": url,
+                "raw": block_text
+            })
+
+    except Exception as e:
+        print("Trackzone fout:", e)
 
     return events
 
 
 def scrape_events():
     events = []
+
     events += get_intertrack_events()
     events += get_trackdays_events()
     events += get_circuitdagen_events()
+    events += get_trackzone_events()
 
     unique = []
     seen = set()
 
     for event in events:
+
         key = f"{event['date']}-{event['circuit']}-{event['organisatie']}-{event['url']}"
+
         if key in seen:
             continue
 
         seen.add(key)
+
         unique.append(event)
 
-    unique.sort(key=lambda event: event["date_obj"])
+    unique.sort(key=lambda e: e["date_obj"])
+
     return unique
 
 
 def get_events():
+
     now = time.time()
 
     if _cache["events"] and now - _cache["time"] < CACHE_SECONDS:
         return _cache["events"]
 
     events = scrape_events()
+
     _cache["events"] = events
     _cache["time"] = now
 
@@ -371,6 +480,7 @@ def home(
     maand: str = Query(default=""),
     toekomst: str = Query(default="ja")
 ):
+
     all_events = get_events()
 
     circuits = sorted(set(event["circuit"] for event in all_events))
@@ -380,43 +490,58 @@ def home(
 
     if toekomst == "ja":
         today = date.today()
-        events = [event for event in events if event["date_obj"] >= today]
+        events = [e for e in events if e["date_obj"] >= today]
 
     if q.strip():
         search = q.strip().lower()
+
         events = [
-            event for event in events
-            if search in event["circuit"].lower()
-            or search in event["organisatie"].lower()
-            or search in event["raw"].lower()
+            e for e in events
+            if search in e["circuit"].lower()
+            or search in e["organisatie"].lower()
+            or search in e["raw"].lower()
         ]
 
     if circuit:
-        events = [event for event in events if event["circuit"] == circuit]
+        events = [e for e in events if e["circuit"] == circuit]
 
     if organisatie:
-        events = [event for event in events if event["organisatie"] == organisatie]
+        events = [e for e in events if e["organisatie"] == organisatie]
 
     if maand:
-        events = [event for event in events if get_month_number(event["date"]) == maand]
+        events = [
+            e for e in events
+            if get_month_number(e["date"]) == maand
+        ]
 
     circuit_options = '<option value="">Alle circuits</option>'
+
     for c in circuits:
         circuit_options += option_html(c, c, circuit)
 
     organisatie_options = '<option value="">Alle organisaties</option>'
+
     for org in organisaties:
         organisatie_options += option_html(org, org, organisatie)
 
     months_display = [
-        ("", "Alle maanden"), ("01", "Januari"), ("02", "Februari"),
-        ("03", "Maart"), ("04", "April"), ("05", "Mei"),
-        ("06", "Juni"), ("07", "Juli"), ("08", "Augustus"),
-        ("09", "September"), ("10", "Oktober"), ("11", "November"),
+        ("", "Alle maanden"),
+        ("01", "Januari"),
+        ("02", "Februari"),
+        ("03", "Maart"),
+        ("04", "April"),
+        ("05", "Mei"),
+        ("06", "Juni"),
+        ("07", "Juli"),
+        ("08", "Augustus"),
+        ("09", "September"),
+        ("10", "Oktober"),
+        ("11", "November"),
         ("12", "December"),
     ]
 
     month_options = ""
+
     for value, label in months_display:
         month_options += option_html(value, label, maand)
 
@@ -427,189 +552,250 @@ def home(
 <!DOCTYPE html>
 <html lang="nl">
 <head>
-    <meta charset="UTF-8">
-    <title>Trackday Finder</title>
-    <style>
-        body {{
-            margin: 0;
-            font-family: Arial, sans-serif;
-            background: #111827;
-        }}
+<meta charset="UTF-8">
+<title>Trackday Finder</title>
 
-        .header {{
-            padding: 40px 20px;
-            text-align: center;
-            color: white;
-        }}
+<style>
 
-        .container {{
-            max-width: 1150px;
-            margin: auto;
-            padding: 20px;
-        }}
+body {{
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111827;
+}}
 
-        .searchbox {{
-            background: white;
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 20px;
-        }}
+.header {{
+    padding: 40px 20px;
+    text-align: center;
+    color: white;
+}}
 
-        .filters {{
-            display: grid;
-            grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto;
-            gap: 10px;
-        }}
+.container {{
+    max-width: 1150px;
+    margin: auto;
+    padding: 20px;
+}}
 
-        input, select {{
-            padding: 15px;
-            border-radius: 10px;
-            border: 1px solid #ddd;
-            font-size: 16px;
-            width: 100%;
-            box-sizing: border-box;
-        }}
+.searchbox {{
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 20px;
+}}
 
-        button {{
-            padding: 15px 25px;
-            border: none;
-            border-radius: 10px;
-            background: #ef4444;
-            color: white;
-            font-size: 16px;
-            font-weight: bold;
-            cursor: pointer;
-        }}
+.filters {{
+    display: grid;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto;
+    gap: 10px;
+}}
 
-        button:hover {{
-            background: #dc2626;
-        }}
+input, select {{
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    font-size: 16px;
+    width: 100%;
+    box-sizing: border-box;
+}}
 
-        .reset {{
-            display: inline-block;
-            margin-top: 12px;
-            color: #ef4444;
-            text-decoration: none;
-            font-weight: bold;
-        }}
+button {{
+    padding: 15px 25px;
+    border: none;
+    border-radius: 10px;
+    background: #ef4444;
+    color: white;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+}}
 
-        .count {{
-            color: white;
-            margin-bottom: 15px;
-        }}
+button:hover {{
+    background: #dc2626;
+}}
 
-        .card {{
-            background: white;
-            padding: 20px;
-            border-radius: 16px;
-            margin-bottom: 15px;
-        }}
+.reset {{
+    display: inline-block;
+    margin-top: 12px;
+    color: #ef4444;
+    text-decoration: none;
+    font-weight: bold;
+}}
 
-        .badge {{
-            display: inline-block;
-            background: #fee2e2;
-            color: #991b1b;
-            padding: 6px 10px;
-            border-radius: 999px;
-            font-size: 13px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }}
+.count {{
+    color: white;
+    margin-bottom: 15px;
+}}
 
-        .circuit {{
-            font-size: 28px;
-            font-weight: bold;
-            margin-bottom: 10px;
-        }}
+.card {{
+    background: white;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 15px;
+}}
 
-        .meta {{
-            margin: 6px 0;
-        }}
+.badge {{
+    display: inline-block;
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}}
 
-        .price {{
-            display: inline-block;
-            margin-top: 8px;
-            padding: 8px 12px;
-            background: #ecfdf5;
-            color: #065f46;
-            border-radius: 999px;
-            font-weight: bold;
-        }}
+.circuit {{
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 10px;
+}}
 
-        .raw {{
-            color: #666;
-            font-size: 13px;
-            margin-top: 10px;
-            line-height: 1.4;
-        }}
+.meta {{
+    margin: 6px 0;
+}}
 
-        .link-button {{
-            display: inline-block;
-            margin-top: 14px;
-            padding: 10px 14px;
-            background: #111827;
-            color: white;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: bold;
-        }}
+.price {{
+    display: inline-block;
+    margin-top: 8px;
+    padding: 8px 12px;
+    background: #ecfdf5;
+    color: #065f46;
+    border-radius: 999px;
+    font-weight: bold;
+}}
 
-        .link-button:hover {{
-            background: #374151;
-        }}
+.raw {{
+    color: #666;
+    font-size: 13px;
+    margin-top: 10px;
+    line-height: 1.4;
+}}
 
-        @media (max-width: 950px) {{
-            .filters {{
-                grid-template-columns: 1fr;
-            }}
-        }}
-    </style>
+.link-button {{
+    display: inline-block;
+    margin-top: 14px;
+    padding: 10px 14px;
+    background: #111827;
+    color: white;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: bold;
+}}
+
+.link-button:hover {{
+    background: #374151;
+}}
+
+@media (max-width: 950px) {{
+
+    .filters {{
+        grid-template-columns: 1fr;
+    }}
+
+}}
+
+</style>
 </head>
+
 <body>
-    <div class="header">
-        <h1>Trackday Finder</h1>
-        <p>Zoek en filter trackdays op circuit, organisatie en maand</p>
-    </div>
 
-    <div class="container">
-        <div class="searchbox">
-            <form method="get" action="/" class="filters">
-                <input type="text" name="q" placeholder="Vrij zoeken..." value="{q}">
-                <select name="circuit">{circuit_options}</select>
-                <select name="organisatie">{organisatie_options}</select>
-                <select name="maand">{month_options}</select>
-                <select name="toekomst">
-                    <option value="ja" {future_yes}>Alleen toekomst</option>
-                    <option value="nee" {future_no}>Alles tonen</option>
-                </select>
-                <button type="submit">Zoeken</button>
-            </form>
-            <a class="reset" href="/">Filters wissen</a>
-        </div>
+<div class="header">
+    <h1>Trackday Finder</h1>
+    <p>Zoek en filter trackdays op circuit, organisatie en maand</p>
+</div>
 
-        <p class="count">Resultaten: {len(events)}</p>
+<div class="container">
+
+<div class="searchbox">
+
+<form method="get" action="/" class="filters">
+
+<input
+    type="text"
+    name="q"
+    placeholder="Vrij zoeken..."
+    value="{q}"
+>
+
+<select name="circuit">
+{circuit_options}
+</select>
+
+<select name="organisatie">
+{organisatie_options}
+</select>
+
+<select name="maand">
+{month_options}
+</select>
+
+<select name="toekomst">
+    <option value="ja" {future_yes}>Alleen toekomst</option>
+    <option value="nee" {future_no}>Alles tonen</option>
+</select>
+
+<button type="submit">Zoeken</button>
+
+</form>
+
+<a class="reset" href="/">Filters wissen</a>
+
+</div>
+
+<p class="count">Resultaten: {len(events)}</p>
 """
 
     if len(events) == 0:
-        html += '<div class="card">Geen resultaten gevonden.</div>'
+
+        html += """
+<div class="card">
+Geen resultaten gevonden.
+</div>
+"""
+
     else:
+
         for event in events:
+
             html += f"""
-        <div class="card">
-            <div class="badge">{event["organisatie"]}</div>
-            <div class="circuit">{event["circuit"]}</div>
-            <div class="meta"><b>Datum:</b> {format_date(event["date"])}</div>
-            <div class="meta"><b>Organisatie:</b> {event["organisatie"]}</div>
-            <div class="price">Prijs: {event["price"]}</div>
-            <div class="raw">{event["raw"]}</div>
-            <a class="link-button" href="{event["url"]}" target="_blank">
-                Bekijk / boeken bij {event["organisatie"]}
-            </a>
-        </div>
+<div class="card">
+
+<div class="badge">
+{event["organisatie"]}
+</div>
+
+<div class="circuit">
+{event["circuit"]}
+</div>
+
+<div class="meta">
+<b>Datum:</b> {format_date(event["date"])}
+</div>
+
+<div class="meta">
+<b>Organisatie:</b> {event["organisatie"]}
+</div>
+
+<div class="price">
+Prijs: {event["price"]}
+</div>
+
+<div class="raw">
+{event["raw"]}
+</div>
+
+<a
+    class="link-button"
+    href="{event["url"]}"
+    target="_blank"
+>
+Bekijk / boeken bij {event["organisatie"]}
+</a>
+
+</div>
 """
 
     html += """
-    </div>
+</div>
 </body>
 </html>
 """
