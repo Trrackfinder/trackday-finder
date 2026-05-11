@@ -447,5 +447,30 @@ def home(
 </body>
 </html>
 """
+@app.get("/links")
+def links():
+
+    import requests
+    from bs4 import BeautifulSoup
+
+    url = "https://www.trackdays.be/nl"
+
+    r = requests.get(url, headers=HEADERS)
+
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    output = ""
+
+    for a in soup.find_all("a"):
+
+        href = a.get("href")
+
+        text = a.get_text(strip=True)
+
+        if href:
+
+            output += f"<p>{text} --> {href}</p>"
+
+    return HTMLResponse(output)
 
     return html
