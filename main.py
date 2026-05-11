@@ -170,7 +170,25 @@ def detect_trackdays_circuit(block_text):
     lines = [
         clean_bad_encoding(line.strip())
         for line in block_text.split("\n")
-        if line.strip()
+        if clean_bad_encoding(line.strip())
+    ]
+
+    known_circuits = [
+        "zolder",
+        "spa",
+        "francorchamps",
+        "mettet",
+        "croix",
+        "ternois",
+        "clastres",
+        "folembray",
+        "ecuyers",
+        "meppen",
+        "bilster",
+        "nürburgring",
+        "nurburgring",
+        "assen",
+        "zandvoort",
     ]
 
     skip_words = [
@@ -179,10 +197,21 @@ def detect_trackdays_circuit(block_text):
         "hemelvaart weekend", "nationale feestdag"
     ]
 
+    # Eerst zoeken naar bekende circuitnamen
+    for line in reversed(lines):
+        lower = line.lower()
+
+        if any(c in lower for c in known_circuits):
+            return clean_circuit_name(line)
+
+    # Fallback
     for line in reversed(lines):
         lower = line.lower()
 
         if "€" in line:
+            continue
+
+        if "euro" in lower:
             continue
 
         if lower in skip_words:
@@ -192,6 +221,9 @@ def detect_trackdays_circuit(block_text):
             continue
 
         if len(line) < 3:
+            continue
+
+        if line in ["-", "–", "_"]:
             continue
 
         return clean_circuit_name(line)
