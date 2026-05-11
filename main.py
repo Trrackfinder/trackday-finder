@@ -51,9 +51,10 @@ def sort_date(date_text):
 def get_intertrack_events():
     events = []
     seen = set()
+    source_url = "https://www.inter-track.be"
 
     try:
-        r = requests.get("https://www.inter-track.be", headers=HEADERS, timeout=10)
+        r = requests.get(source_url, headers=HEADERS, timeout=10)
         soup = BeautifulSoup(r.text, "html.parser")
         text = soup.get_text("\n")
 
@@ -70,7 +71,6 @@ def get_intertrack_events():
 
             date = date_match.group()
 
-            # Voorbeeld: Mon 06/04/2026 - Mettet
             parts = clean.split("-")
             if len(parts) >= 2:
                 circuit = clean_circuit_name(parts[-1])
@@ -91,6 +91,7 @@ def get_intertrack_events():
                 "date": date,
                 "circuit": circuit,
                 "organisatie": "Intertrack",
+                "url": source_url,
                 "raw": clean
             })
 
@@ -140,6 +141,7 @@ def get_trackdays_events():
                     "date": date,
                     "circuit": circuit,
                     "organisatie": "Trackdays.be",
+                    "url": url,
                     "raw": nearby
                 })
 
@@ -193,7 +195,7 @@ def home(q: str = Query(default="")):
         <style>
             body {{
                 margin: 0;
-                font-family: Arial;
+                font-family: Arial, sans-serif;
                 background: #111827;
             }}
 
@@ -240,6 +242,7 @@ def home(q: str = Query(default="")):
                 padding: 20px;
                 border-radius: 16px;
                 margin-bottom: 15px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.20);
             }}
 
             .badge {{
@@ -267,6 +270,21 @@ def home(q: str = Query(default="")):
                 color: #666;
                 font-size: 13px;
                 margin-top: 10px;
+            }}
+
+            .link-button {{
+                display: inline-block;
+                margin-top: 14px;
+                padding: 10px 14px;
+                background: #111827;
+                color: white;
+                border-radius: 10px;
+                text-decoration: none;
+                font-weight: bold;
+            }}
+
+            .link-button:hover {{
+                background: #374151;
             }}
         </style>
     </head>
@@ -299,6 +317,9 @@ def home(q: str = Query(default="")):
                 <div class="meta"><b>Datum:</b> {e["date"]}</div>
                 <div class="meta"><b>Organisatie:</b> {e["organisatie"]}</div>
                 <div class="raw">{e["raw"]}</div>
+                <a class="link-button" href="{e["url"]}" target="_blank">
+                    Bekijk / boeken bij {e["organisatie"]}
+                </a>
             </div>
             """
 
