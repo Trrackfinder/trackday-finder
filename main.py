@@ -541,7 +541,6 @@ def scrape_events():
     events += get_trackdays_events()
     events += get_circuitdagen_events()
     events += get_trackzone_events()
-    events += get_trackdays4all_events()
 
     unique = []
     seen = set()
