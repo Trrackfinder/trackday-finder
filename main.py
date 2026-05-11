@@ -426,7 +426,12 @@ def get_trackdays4all_events():
     seen = set()
 
     try:
-        response = requests.get(url, headers=HEADERS, timeout=10)
+        response = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=15,
+            allow_redirects=True
+        )
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
