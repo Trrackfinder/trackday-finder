@@ -169,24 +169,49 @@ def get_events():
         unique.append(e)
 
     unique.sort(key=lambda e: sort_date(e["date"]))
-
     return unique
 
 
-@app.get("/", response_class=HTMLResponse)
-def home(q: str = Query(default="")):
-    all_events = get_events()
-    search = q.strip().lower()
+def option_html(value, selected_value):
+    selected = "selected" if value == selected_value else ""
+    return f'<option value="{value}" {selected}>{value}</option>'
 
-    if search:
+
+@app.get("/", response_class=HTMLResponse)
+def home(
+    q: str = Query(default=""),
+    circuit: str = Query(default=""),
+    organisatie: str = Query(default="")
+):
+    all_events = get_events()
+
+    circuits = sorted(set(e["circuit"] for e in all_events))
+    organisaties = sorted(set(e["organisatie"] for e in all_events))
+
+    events = all_events
+
+    if q.strip():
+        search = q.strip().lower()
         events = [
-            e for e in all_events
+            e for e in events
             if search in e["circuit"].lower()
             or search in e["organisatie"].lower()
             or search in e["raw"].lower()
         ]
-    else:
-        events = all_events
+
+    if circuit:
+        events = [e for e in events if e["circuit"] == circuit]
+
+    if organisatie:
+        events = [e for e in events if e["organisatie"] == organisatie]
+
+    circuit_options = '<option value="">Alle circuits</option>'
+    for c in circuits:
+        circuit_options += option_html(c, circuit)
+
+    organisatie_options = '<option value="">Alle organisaties</option>'
+    for o in organisaties:
+        organisatie_options += option_html(o, organisatie)
 
     html = f"""
     <html>
@@ -206,7 +231,7 @@ def home(q: str = Query(default="")):
             }}
 
             .container {{
-                max-width: 1000px;
+                max-width: 1100px;
                 margin: auto;
                 padding: 20px;
             }}
@@ -218,12 +243,18 @@ def home(q: str = Query(default="")):
                 margin-bottom: 20px;
             }}
 
-            input {{
-                width: 70%;
+            .filters {{
+                display: grid;
+                grid-template-columns: 1.5fr 1fr 1fr auto;
+                gap: 10px;
+            }}
+
+            input, select {{
                 padding: 15px;
                 border-radius: 10px;
                 border: 1px solid #ddd;
                 font-size: 16px;
+                width: 100%;
             }}
 
             button {{
@@ -235,6 +266,14 @@ def home(q: str = Query(default="")):
                 font-size: 16px;
                 font-weight: bold;
                 cursor: pointer;
+            }}
+
+            .reset {{
+                display: inline-block;
+                margin-top: 12px;
+                color: #ef4444;
+                text-decoration: none;
+                font-weight: bold;
             }}
 
             .card {{
@@ -283,8 +322,10 @@ def home(q: str = Query(default="")):
                 font-weight: bold;
             }}
 
-            .link-button:hover {{
-                background: #374151;
+            @media (max-width: 800px) {{
+                .filters {{
+                    grid-template-columns: 1fr;
+                }}
             }}
         </style>
     </head>
@@ -292,15 +333,22 @@ def home(q: str = Query(default="")):
     <body>
         <div class="header">
             <h1>Trackday Finder</h1>
-            <p>Zoek alle trackdays op circuit of organisatie</p>
+            <p>Zoek en filter trackdays op circuit en organisatie</p>
         </div>
 
         <div class="container">
             <div class="searchbox">
-                <form method="get" action="/">
-                    <input type="text" name="q" placeholder="Zoek circuit of organisatie..." value="{q}">
+                <form method="get" action="/" class="filters">
+                    <input type="text" name="q" placeholder="Vrij zoeken..." value="{q}">
+                    <select name="circuit">
+                        {circuit_options}
+                    </select>
+                    <select name="organisatie">
+                        {organisatie_options}
+                    </select>
                     <button type="submit">Zoeken</button>
                 </form>
+                <a class="reset" href="/">Filters wissen</a>
             </div>
 
             <p style="color:white;">Resultaten: {len(events)}</p>
