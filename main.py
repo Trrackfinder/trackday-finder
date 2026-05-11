@@ -46,18 +46,14 @@ CIRCUIT_ALIASES = {
     "francorchamps": "Spa-Francorchamps",
     "circuit de spa": "Spa-Francorchamps",
     "spa": "Spa-Francorchamps",
-
     "circuit zolder": "Zolder",
     "zolder circuit": "Zolder",
     "zolder": "Zolder",
-
     "ecuyers": "Ecuyers",
     "écuyers": "Ecuyers",
-
     "croix en ternois": "Croix",
     "croix-en-ternois": "Croix",
     "croix": "Croix",
-
     "mettet": "Mettet",
     "assen": "Assen",
     "zandvoort": "Zandvoort",
@@ -161,6 +157,7 @@ def get_intertrack_events():
                 continue
 
             key = f"{date_text}-{circuit}-Intertrack"
+
             if key in seen:
                 continue
 
@@ -265,6 +262,7 @@ def get_trackdays_events():
                 continue
 
             key = f"{date_text}-{circuit}-Trackdays.be-{booking_url}"
+
             if key in seen:
                 continue
 
@@ -351,6 +349,7 @@ def get_circuitdagen_events():
                 continue
 
             event_url = url
+
             if info_counter < len(info_links):
                 href = info_links[info_counter].get("href")
                 if href:
@@ -359,6 +358,7 @@ def get_circuitdagen_events():
             info_counter += 1
 
             key = f"{date_text}-{circuit}-Circuitdagen.be-{event_url}"
+
             if key in seen:
                 continue
 
@@ -374,12 +374,12 @@ def get_circuitdagen_events():
                 "raw": block_text,
             })
 
-
     except Exception as e:
         print("Circuitdagen.be fout:", e)
 
     return events
-    
+
+
 def get_trackzone_events():
     url = "https://trackzone.nl/"
     events = []
@@ -569,14 +569,12 @@ def get_events():
 
 def option_html(value, label, selected_value):
     selected = "selected" if value == selected_value else ""
-
     return f'<option value="{html.escape(value)}" {selected}>{html.escape(label)}</option>'
 
 
 def event_to_ics(event):
     start = event["date_obj"]
     end = start + timedelta(days=1)
-
     uid = f"{event['date']}-{event['circuit']}-{event['organisatie']}@trackday-finder"
 
     return f"""BEGIN:VEVENT
@@ -599,12 +597,10 @@ def make_ics(events):
             body += event_to_ics(event)
 
     body += "END:VCALENDAR\n"
-
     return body
 
 
 def build_calendar(events, cal_year, cal_month, selected_day):
-
     event_days = {}
 
     for event in events:
@@ -629,7 +625,6 @@ def build_calendar(events, cal_year, cal_month, selected_day):
 
     html_cal = f"""
 <div class="calendar-box">
-
     <div class="calendar-header">
         <a href="/?cal_year={prev_year}&cal_month={prev_month}">←</a>
         <h2>{DUTCH_MONTHS[cal_month].capitalize()} {cal_year}</h2>
@@ -655,25 +650,16 @@ def build_calendar(events, cal_year, cal_month, selected_day):
     )
 
     for week in month_calendar:
-
         for day in week:
-
             if day == 0:
                 html_cal += '<div class="calendar-cell empty"></div>'
                 continue
 
             events_today = event_days.get(day, [])
-
             day_date = date(cal_year, cal_month, day).isoformat()
-
-            selected_class = (
-                "selected-day"
-                if selected_day == day_date
-                else ""
-            )
+            selected_class = "selected-day" if selected_day == day_date else ""
 
             if events_today:
-
                 title = ", ".join([
                     f'{e["organisatie"]} - {e["circuit"]}'
                     for e in events_today
@@ -683,15 +669,11 @@ def build_calendar(events, cal_year, cal_month, selected_day):
 <a class="calendar-cell has-events {selected_class}"
    href="/?dag={day_date}&cal_year={cal_year}&cal_month={cal_month}"
    title="{html.escape(title)}">
-
     <span>{day}</span>
-    <small>{len(events_today)} event(s)</small>
-
+    <small>{len(events_today)}</small>
 </a>
 """
-
             else:
-
                 html_cal += f"""
 <div class="calendar-cell {selected_class}">
     <span>{day}</span>
@@ -713,7 +695,6 @@ def health():
 
 @app.get("/api/events")
 def api_events():
-
     events = get_events()
 
     return [
@@ -732,7 +713,6 @@ def api_events():
 
 @app.get("/ics")
 def ics_export():
-
     events = [
         e for e in get_events()
         if e["date_obj"] >= date.today()
@@ -744,8 +724,7 @@ def ics_export():
         content=ics,
         media_type="text/calendar",
         headers={
-            "Content-Disposition":
-            "attachment; filename=trackdays.ics"
+            "Content-Disposition": "attachment; filename=trackdays.ics"
         },
     )
 
@@ -756,30 +735,27 @@ def ics_single_event(
     circuit: str = Query(...),
     organisatie: str = Query(...),
 ):
-
     events = get_events()
 
     for event in events:
-
         if (
             event["date"] == event_date
             and event["circuit"] == circuit
             and event["organisatie"] == organisatie
         ):
-
             ics = make_ics([event])
 
-    return Response(
+            return Response(
                 content=ics,
                 media_type="text/calendar",
                 headers={
-                    "Content-Disposition":
-                    "attachment; filename=trackday.ics"
+                    "Content-Disposition": "attachment; filename=trackday.ics"
                 },
             )
 
     return Response(content="Event niet gevonden", status_code=404)
-    
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(
     q: str = Query(default=""),
@@ -793,14 +769,12 @@ def home(
     cal_month: int = Query(default=date.today().month),
     quick: str = Query(default=""),
 ):
-
     all_events = get_events()
 
     circuits = sorted(set(event["circuit"] for event in all_events))
     organisaties = sorted(set(event["organisatie"] for event in all_events))
 
     events = list(all_events)
-
     today = date.today()
 
     if toekomst == "ja":
@@ -809,17 +783,13 @@ def home(
             if e["date_obj"] >= today
         ]
 
-    # QUICK FILTERS
-
     if quick == "today":
-
         events = [
             e for e in events
             if e["date_obj"] == today
         ]
 
     elif quick == "week":
-
         start = today
         end = today + timedelta(days=7)
 
@@ -829,7 +799,6 @@ def home(
         ]
 
     elif quick == "month":
-
         events = [
             e for e in events
             if (
@@ -839,7 +808,6 @@ def home(
         ]
 
     elif quick == "nextmonth":
-
         next_month = today.month + 1
         next_year = today.year
 
@@ -855,15 +823,9 @@ def home(
             )
         ]
 
-    # DAG FILTER
-
     if dag:
-
         try:
-            selected_date = datetime.strptime(
-                dag,
-                "%Y-%m-%d"
-            ).date()
+            selected_date = datetime.strptime(dag, "%Y-%m-%d").date()
 
             events = [
                 e for e in events
@@ -873,10 +835,7 @@ def home(
         except Exception:
             pass
 
-    # SEARCH
-
     if q.strip():
-
         search = q.strip().lower()
 
         events = [
@@ -887,8 +846,6 @@ def home(
                 or search in e["raw"].lower()
             )
         ]
-
-    # FILTERS
 
     if circuit:
         events = [
@@ -908,26 +865,18 @@ def home(
             if get_month_number(e["date"]) == maand
         ]
 
-    # SORTING
-
     if sort == "circuit":
         events.sort(key=lambda e: e["circuit"])
-
     elif sort == "organisatie":
         events.sort(key=lambda e: e["organisatie"])
-
     else:
         events.sort(key=lambda e: e["date_obj"])
 
-    # OPTIONS
-
     circuit_options = '<option value="">Alle circuits</option>'
-
     for c in circuits:
         circuit_options += option_html(c, c, circuit)
 
     organisatie_options = '<option value="">Alle organisaties</option>'
-
     for org in organisaties:
         organisatie_options += option_html(org, org, organisatie)
 
@@ -948,7 +897,6 @@ def home(
     ]
 
     month_options = ""
-
     for value, label in months_display:
         month_options += option_html(value, label, maand)
 
@@ -986,10 +934,10 @@ def home(
 
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Trackday Finder</title>
 
 <style>
-
 body {{
     margin: 0;
     font-family: Arial, sans-serif;
@@ -997,9 +945,19 @@ body {{
 }}
 
 .header {{
-    padding: 40px 20px;
+    padding: 34px 16px 24px;
     text-align: center;
     color: white;
+}}
+
+.header h1 {{
+    margin: 0;
+    font-size: 34px;
+}}
+
+.header p {{
+    margin: 10px 0 0;
+    color: #d1d5db;
 }}
 
 .container {{
@@ -1022,17 +980,13 @@ body {{
     z-index: 100;
 }}
 
+.mobile-summary {{
+    display: none;
+}}
+
 .filters {{
     display: grid;
-    grid-template-columns:
-        1.5fr
-        1fr
-        1fr
-        1fr
-        1fr
-        1fr
-        auto;
-
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr 1fr auto;
     gap: 10px;
 }}
 
@@ -1076,7 +1030,7 @@ button:hover {{
 }}
 
 .quick-filters {{
-    margin-top: 20px;
+    margin-top: 18px;
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
@@ -1090,10 +1044,6 @@ button:hover {{
     text-decoration: none;
     font-size: 14px;
     font-weight: bold;
-}}
-
-.quick-filters a:hover {{
-    background: #374151;
 }}
 
 .count {{
@@ -1155,10 +1105,16 @@ button:hover {{
     line-height: 1.4;
 }}
 
+.actions {{
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 14px;
+}}
+
 .link-button,
 .ics-button {{
     display: inline-block;
-    margin-top: 14px;
     padding: 10px 14px;
     background: #111827;
     color: white;
@@ -1169,15 +1125,6 @@ button:hover {{
 
 .ics-button {{
     background: #065f46;
-    margin-left: 8px;
-}}
-
-.link-button:hover {{
-    background: #374151;
-}}
-
-.ics-button:hover {{
-    background: #047857;
 }}
 
 .calendar-header {{
@@ -1238,34 +1185,162 @@ button:hover {{
     border: 2px solid #ef4444;
 }}
 
-.calendar-cell.has-events:hover {{
-    background: #fecaca;
-}}
-
 .selected-day {{
     outline: 3px solid #111827;
 }}
 
-@media (max-width: 1050px) {{
+@media (max-width: 760px) {{
+    .header {{
+        padding: 22px 12px 16px;
+    }}
 
-    .filters {{
-        grid-template-columns: 1fr;
+    .header h1 {{
+        font-size: 26px;
+    }}
+
+    .header p {{
+        font-size: 13px;
+    }}
+
+    .container {{
+        padding: 10px;
     }}
 
     .searchbox {{
         position: static;
+        padding: 14px;
+        border-radius: 14px;
+    }}
+
+    .mobile-summary {{
+        display: block;
+        background: #111827;
+        color: white;
+        padding: 12px 14px;
+        border-radius: 12px;
+        font-weight: bold;
+        cursor: pointer;
+        margin-bottom: 12px;
+    }}
+
+    details[open] .mobile-summary {{
+        margin-bottom: 14px;
+    }}
+
+    .filters {{
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }}
+
+    input,
+    select,
+    button {{
+        padding: 12px;
+        font-size: 14px;
+    }}
+
+    .reset,
+    .ics-all {{
+        display: block;
+        margin: 12px 0 0;
+        font-size: 14px;
+    }}
+
+    .quick-filters {{
+        gap: 8px;
+        margin-top: 14px;
+    }}
+
+    .quick-filters a {{
+        font-size: 12px;
+        padding: 8px 10px;
+    }}
+
+    .calendar-box {{
+        padding: 12px;
+        border-radius: 14px;
+    }}
+
+    .calendar-header h2 {{
+        font-size: 20px;
+    }}
+
+    .calendar-header a {{
+        font-size: 24px;
+    }}
+
+    .calendar-grid {{
+        gap: 4px;
+    }}
+
+    .calendar-days div {{
+        font-size: 12px;
+        padding: 4px;
     }}
 
     .calendar-cell {{
-        min-height: 55px;
-        padding: 7px;
+        min-height: 42px;
+        padding: 5px;
+        border-radius: 8px;
+        font-size: 12px;
     }}
 
     .calendar-cell small {{
         font-size: 10px;
     }}
-}}
 
+    .calendar-cell.has-events {{
+        border-width: 1px;
+    }}
+
+    .card {{
+        padding: 15px;
+        border-radius: 14px;
+        margin-bottom: 12px;
+    }}
+
+    .badge {{
+        font-size: 11px;
+        padding: 5px 8px;
+    }}
+
+    .circuit {{
+        font-size: 24px;
+        margin-bottom: 8px;
+    }}
+
+    .meta {{
+        font-size: 14px;
+    }}
+
+    .price {{
+        font-size: 14px;
+        padding: 7px 10px;
+    }}
+
+    .raw {{
+        display: none;
+    }}
+
+    .actions {{
+        flex-direction: column;
+        gap: 8px;
+    }}
+
+    .link-button,
+    .ics-button {{
+        text-align: center;
+        width: 100%;
+        box-sizing: border-box;
+        padding: 12px;
+        font-size: 14px;
+    }}
+
+    .count {{
+        font-size: 14px;
+        margin-left: 4px;
+    }}
+}}
 </style>
 </head>
 
@@ -1273,114 +1348,59 @@ button:hover {{
 
 <div class="header">
     <h1>Trackday Finder</h1>
-    <p>
-        Zoek en filter trackdays
-        op circuit,
-        organisatie
-        en maand
-    </p>
+    <p>Zoek en filter trackdays op circuit, organisatie en maand</p>
 </div>
 
 <div class="container">
 
     <div class="searchbox">
+        <details>
+            <summary class="mobile-summary">Filters en snelle keuzes</summary>
 
-        <form method="get" action="/" class="filters">
+            <form method="get" action="/" class="filters">
+                <input type="text" name="q" placeholder="Vrij zoeken..." value="{safe_q}">
+                <select name="circuit">{circuit_options}</select>
+                <select name="organisatie">{organisatie_options}</select>
+                <select name="maand">{month_options}</select>
 
-            <input
-                type="text"
-                name="q"
-                placeholder="Vrij zoeken..."
-                value="{safe_q}"
-            >
+                <select name="toekomst">
+                    <option value="ja" {future_yes}>Alleen toekomst</option>
+                    <option value="nee" {future_no}>Alles tonen</option>
+                </select>
 
-            <select name="circuit">
-                {circuit_options}
-            </select>
+                <select name="sort">{sort_options}</select>
 
-            <select name="organisatie">
-                {organisatie_options}
-            </select>
+                <button type="submit">Zoeken</button>
+            </form>
 
-            <select name="maand">
-                {month_options}
-            </select>
+            <a class="reset" href="/">Filters wissen</a>
+            <a class="ics-all" href="/ics">Download alle trackdays (.ics)</a>
 
-            <select name="toekomst">
-                <option value="ja" {future_yes}>
-                    Alleen toekomst
-                </option>
-
-                <option value="nee" {future_no}>
-                    Alles tonen
-                </option>
-            </select>
-
-            <select name="sort">
-                {sort_options}
-            </select>
-
-            <button type="submit">
-                Zoeken
-            </button>
-
-        </form>
-
-        <a class="reset" href="/">
-            Filters wissen
-        </a>
-
-        <a class="ics-all" href="/ics">
-            Download alle trackdays (.ics)
-        </a>
-
-        <div class="quick-filters">
-
-            <a href="/?quick=today">
-                Vandaag
-            </a>
-
-            <a href="/?quick=week">
-                Deze week
-            </a>
-
-            <a href="/?quick=month">
-                Deze maand
-            </a>
-
-            <a href="/?quick=nextmonth">
-                Volgende maand
-            </a>
-
-            <a href="/">
-                Alles
-            </a>
-
-        </div>
-
+            <div class="quick-filters">
+                <a href="/?quick=today">Vandaag</a>
+                <a href="/?quick=week">Deze week</a>
+                <a href="/?quick=month">Deze maand</a>
+                <a href="/?quick=nextmonth">Volgende maand</a>
+                <a href="/">Alles</a>
+            </div>
+        </details>
     </div>
 
     {calendar_html}
 
     {selected_day_text}
 
-    <p class="count">
-        Resultaten: {len(events)}
-    </p>
+    <p class="count">Resultaten: {len(events)}</p>
 """
 
     if len(events) == 0:
-
         html_page += """
 <div class="card">
     Geen resultaten gevonden.
 </div>
 """
-
     else:
-
         for event in events:
-
             event_org = html.escape(event["organisatie"])
             event_circuit = html.escape(event["circuit"])
             event_date = html.escape(format_date(event["date"]))
@@ -1396,48 +1416,24 @@ button:hover {{
 
             html_page += f"""
 <div class="card">
+    <div class="badge">{event_org}</div>
+    <div class="circuit">{event_circuit}</div>
 
-    <div class="badge">
-        {event_org}
+    <div class="meta"><b>Datum:</b> {event_date}</div>
+    <div class="meta"><b>Organisatie:</b> {event_org}</div>
+
+    <div class="price">Prijs: {event_price}</div>
+    <div class="raw">{event_raw}</div>
+
+    <div class="actions">
+        <a class="link-button" href="{event_url}" target="_blank">
+            Bekijk / boeken
+        </a>
+
+        <a class="ics-button" href="{ics_url}">
+            Zet in agenda
+        </a>
     </div>
-
-    <div class="circuit">
-        {event_circuit}
-    </div>
-
-    <div class="meta">
-        <b>Datum:</b>
-        {event_date}
-    </div>
-
-    <div class="meta">
-        <b>Organisatie:</b>
-        {event_org}
-    </div>
-
-    <div class="price">
-        Prijs: {event_price}
-    </div>
-
-    <div class="raw">
-        {event_raw}
-    </div>
-
-    <a
-        class="link-button"
-        href="{event_url}"
-        target="_blank"
-    >
-        Bekijk / boeken bij {event_org}
-    </a>
-
-    <a
-        class="ics-button"
-        href="{ics_url}"
-    >
-        Zet in agenda
-    </a>
-
 </div>
 """
 
