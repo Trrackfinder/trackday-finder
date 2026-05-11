@@ -374,6 +374,7 @@ def get_circuitdagen_events():
                 "raw": block_text,
             })
 
+
     except Exception as e:
         print("Circuitdagen.be fout:", e)
 
