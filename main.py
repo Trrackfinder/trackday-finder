@@ -333,7 +333,7 @@ def home(
     <body>
         <div class="header">
             <h1>Trackday Finder</h1>
-            <p>Zoek en filter trackdays op circuit, organisatie en maand</p>
+            <p>VERSIE 2 - filters actief</p>
         </div>
 
         <div class="container">
