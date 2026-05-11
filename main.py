@@ -111,6 +111,36 @@ def get_intertrack_events():
     return events
 
 
+def detect_trackdays_circuit(block_text):
+    lines = [line.strip() for line in block_text.split("\n") if line.strip()]
+
+    skip_words = [
+        "boeken", "promotie", "vrijdag", "zaterdag", "zondag", "maandag",
+        "dinsdag", "woensdag", "donderdag", "hemelvaart weekend",
+        "nationale feestdag"
+    ]
+
+    for line in reversed(lines):
+        lower = line.lower()
+
+        if lower.startswith("track "):
+            return clean_circuit_name(line)
+
+        if "€" in line or "â¬" in line:
+            continue
+
+        if re.search(r"\d", line):
+            continue
+
+        if lower in skip_words:
+            continue
+
+        if len(line) > 2:
+            return clean_circuit_name(line)
+
+    return None
+
+
 def get_trackdays_events():
     url = "https://www.trackdays.be/nl"
     events = []
@@ -120,50 +150,53 @@ def get_trackdays_events():
         response = requests.get(url, headers=HEADERS, timeout=10)
         soup = BeautifulSoup(response.text, "html.parser")
 
-        links = soup.find_all("a")
-        booking_links = []
-
-        for a in links:
-            href = a.get("href")
-            text = a.get_text(" ", strip=True)
-
-            if not href:
-                continue
-
-            if "/booking/" in href:
-                booking_links.append({
-                    "url": urljoin(url, href),
-                    "text": text
-                })
-
-        text_lines = [
+        all_text_lines = [
             line.strip()
             for line in soup.get_text("\n").splitlines()
             if line.strip()
         ]
 
-        booking_index = 0
+        for a in soup.find_all("a"):
+            href = a.get("href")
+            link_text = a.get_text(" ", strip=True).lower()
 
-        for i, line in enumerate(text_lines):
-            lower = line.lower()
-
-            if not lower.startswith("track "):
+            if not href or "/booking/" not in href:
                 continue
 
-            circuit = clean_circuit_name(line)
-            nearby = " ".join(text_lines[max(0, i - 8): i + 8])
+            booking_url = urljoin(url, href)
+
+            flat_text = soup.get_text("\n")
+            booking_text = a.get_text(" ", strip=True)
+
+            lines = all_text_lines
+
+            booking_positions = [
+                i for i, line in enumerate(lines)
+                if line.lower() == "boeken"
+            ]
+
+            booking_number = 0
+            for previous_a in soup.find_all("a"):
+                previous_href = previous_a.get("href")
+                if previous_href and "/booking/" in previous_href:
+                    if previous_a == a:
+                        break
+                    booking_number += 1
+
+            if booking_number >= len(booking_positions):
+                continue
+
+            pos = booking_positions[booking_number]
+            nearby_lines = lines[max(0, pos - 12):pos + 1]
+            nearby = "\n".join(nearby_lines)
+
             date_text = find_trackdays_date(nearby)
+            circuit = detect_trackdays_circuit(nearby)
 
-            if not date_text:
+            if not date_text or not circuit:
                 continue
 
-            booking_url = url
-
-            if booking_index < len(booking_links):
-                booking_url = booking_links[booking_index]["url"]
-                booking_index += 1
-
-            key = f"{date_text}-{circuit}-Trackdays.be"
+            key = f"{date_text}-{circuit}-Trackdays.be-{booking_url}"
 
             if key in seen:
                 continue
@@ -177,7 +210,7 @@ def get_trackdays_events():
                 "organisatie": "Trackdays.be",
                 "price": "Zie organisatie",
                 "url": booking_url,
-                "raw": nearby
+                "raw": " ".join(nearby_lines)
             })
 
     except Exception as e:
