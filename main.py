@@ -41,6 +41,20 @@ def find_trackdays_date(text):
     return f"{day.zfill(2)}/{month}/2026"
 
 
+def find_price(text):
+    match = re.search(r"(?:€|â¬)\s*(\d{2,4})", text)
+
+    if match:
+        return f"€ {match.group(1)}"
+
+    match = re.search(r"\b(\d{2,4})\s*(?:euro|eur)\b", text.lower())
+
+    if match:
+        return f"€ {match.group(1)}"
+
+    return "Onbekend"
+
+
 def parse_date(date_text):
     try:
         return datetime.strptime(date_text, "%d/%m/%Y").date()
@@ -99,6 +113,7 @@ def get_intertrack_events():
                 "date_obj": parse_date(date_text),
                 "circuit": circuit,
                 "organisatie": "Intertrack",
+                "price": find_price(clean),
                 "url": source_url,
                 "raw": clean
             })
@@ -154,6 +169,7 @@ def get_trackdays_events():
                     "date_obj": parse_date(date_text),
                     "circuit": circuit,
                     "organisatie": "Trackdays.be",
+                    "price": find_price(nearby),
                     "url": url,
                     "raw": nearby
                 })
@@ -237,18 +253,10 @@ def home(
 
     months_display = [
         ("", "Alle maanden"),
-        ("01", "Januari"),
-        ("02", "Februari"),
-        ("03", "Maart"),
-        ("04", "April"),
-        ("05", "Mei"),
-        ("06", "Juni"),
-        ("07", "Juli"),
-        ("08", "Augustus"),
-        ("09", "September"),
-        ("10", "Oktober"),
-        ("11", "November"),
-        ("12", "December"),
+        ("01", "Januari"), ("02", "Februari"), ("03", "Maart"),
+        ("04", "April"), ("05", "Mei"), ("06", "Juni"),
+        ("07", "Juli"), ("08", "Augustus"), ("09", "September"),
+        ("10", "Oktober"), ("11", "November"), ("12", "December"),
     ]
 
     month_options = ""
@@ -276,16 +284,6 @@ def home(
             color: white;
         }}
 
-        .header h1 {{
-            margin: 0;
-            font-size: 42px;
-        }}
-
-        .header p {{
-            color: #d1d5db;
-            font-size: 18px;
-        }}
-
         .container {{
             max-width: 1150px;
             margin: auto;
@@ -297,7 +295,6 @@ def home(
             padding: 20px;
             border-radius: 16px;
             margin-bottom: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.20);
         }}
 
         .filters {{
@@ -343,7 +340,6 @@ def home(
             padding: 20px;
             border-radius: 16px;
             margin-bottom: 15px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.20);
         }}
 
         .badge {{
@@ -367,6 +363,16 @@ def home(
             margin: 6px 0;
         }}
 
+        .price {{
+            display: inline-block;
+            margin-top: 8px;
+            padding: 8px 12px;
+            background: #ecfdf5;
+            color: #065f46;
+            border-radius: 999px;
+            font-weight: bold;
+        }}
+
         .raw {{
             color: #666;
             font-size: 13px;
@@ -385,17 +391,9 @@ def home(
             font-weight: bold;
         }}
 
-        .link-button:hover {{
-            background: #374151;
-        }}
-
         @media (max-width: 950px) {{
             .filters {{
                 grid-template-columns: 1fr;
-            }}
-
-            .header h1 {{
-                font-size: 34px;
             }}
         }}
     </style>
@@ -411,15 +409,9 @@ def home(
         <div class="searchbox">
             <form method="get" action="/" class="filters">
                 <input type="text" name="q" placeholder="Vrij zoeken..." value="{q}">
-                <select name="circuit">
-                    {circuit_options}
-                </select>
-                <select name="organisatie">
-                    {organisatie_options}
-                </select>
-                <select name="maand">
-                    {month_options}
-                </select>
+                <select name="circuit">{circuit_options}</select>
+                <select name="organisatie">{organisatie_options}</select>
+                <select name="maand">{month_options}</select>
                 <select name="toekomst">
                     <option value="ja" {future_yes}>Alleen toekomst</option>
                     <option value="nee" {future_no}>Alles tonen</option>
@@ -433,11 +425,7 @@ def home(
 """
 
     if len(events) == 0:
-        html += """
-        <div class="card">
-            Geen resultaten gevonden.
-        </div>
-        """
+        html += '<div class="card">Geen resultaten gevonden.</div>'
     else:
         for event in events:
             html += f"""
@@ -446,6 +434,7 @@ def home(
             <div class="circuit">{event["circuit"]}</div>
             <div class="meta"><b>Datum:</b> {event["date"]}</div>
             <div class="meta"><b>Organisatie:</b> {event["organisatie"]}</div>
+            <div class="price">Prijs: {event["price"]}</div>
             <div class="raw">{event["raw"]}</div>
             <a class="link-button" href="{event["url"]}" target="_blank">
                 Bekijk / boeken bij {event["organisatie"]}
