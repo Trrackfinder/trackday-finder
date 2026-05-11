@@ -3,12 +3,15 @@ from fastapi.responses import HTMLResponse
 import requests
 from bs4 import BeautifulSoup
 import re
+import time
 from datetime import datetime, date
 from urllib.parse import urljoin
 
 app = FastAPI()
 
 HEADERS = {"User-Agent": "Mozilla/5.0"}
+CACHE_SECONDS = 900
+_cache = {"time": 0, "events": []}
 
 MONTHS = {
     "jan": "01", "feb": "02", "mrt": "03", "mar": "03",
@@ -23,6 +26,7 @@ MONTHS = {
 
 
 def clean_circuit_name(name):
+    name = name.lower()
     name = name.replace("track", "").strip()
     name = name.replace("croix en ternois", "Croix")
     name = name.replace("croix-en-ternois", "Croix")
@@ -41,6 +45,18 @@ def get_month_number(date_text):
         return datetime.strptime(date_text, "%d/%m/%Y").strftime("%m")
     except Exception:
         return ""
+
+
+def format_date(date_text):
+    try:
+        d = datetime.strptime(date_text, "%d/%m/%Y").date()
+        maanden = [
+            "", "januari", "februari", "maart", "april", "mei", "juni",
+            "juli", "augustus", "september", "oktober", "november", "december"
+        ]
+        return f"{d.day} {maanden[d.month]} {d.year}"
+    except Exception:
+        return date_text
 
 
 def find_text_date(text):
@@ -69,6 +85,8 @@ def get_intertrack_events():
 
     try:
         response = requests.get(source_url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+
         soup = BeautifulSoup(response.text, "html.parser")
         text = soup.get_text("\n")
 
@@ -82,7 +100,6 @@ def get_intertrack_events():
                 continue
 
             date_text = date_match.group()
-
             parts = clean.split("-")
             circuit = clean_circuit_name(parts[-1]) if len(parts) >= 2 else "Onbekend"
 
@@ -126,7 +143,7 @@ def detect_trackdays_circuit(block_text):
         if lower.startswith("track "):
             return clean_circuit_name(line)
 
-        if "€" in line or "â¬" in line:
+        if "€" in line or "â�¬" in line:
             continue
 
         if re.search(r"\d", line):
@@ -148,6 +165,8 @@ def get_trackdays_events():
 
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+
         soup = BeautifulSoup(response.text, "html.parser")
 
         all_text_lines = [
@@ -241,6 +260,8 @@ def get_circuitdagen_events():
 
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
+        response.raise_for_status()
+
         soup = BeautifulSoup(response.text, "html.parser")
 
         lines = [
@@ -298,7 +319,7 @@ def get_circuitdagen_events():
     return events
 
 
-def get_events():
+def scrape_events():
     events = []
     events += get_intertrack_events()
     events += get_trackdays_events()
@@ -311,6 +332,7 @@ def get_events():
         key = f"{event['date']}-{event['circuit']}-{event['organisatie']}-{event['url']}"
         if key in seen:
             continue
+
         seen.add(key)
         unique.append(event)
 
@@ -318,9 +340,27 @@ def get_events():
     return unique
 
 
+def get_events():
+    now = time.time()
+
+    if _cache["events"] and now - _cache["time"] < CACHE_SECONDS:
+        return _cache["events"]
+
+    events = scrape_events()
+    _cache["events"] = events
+    _cache["time"] = now
+
+    return events
+
+
 def option_html(value, label, selected_value):
     selected = "selected" if value == selected_value else ""
     return f'<option value="{value}" {selected}>{label}</option>'
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -385,8 +425,9 @@ def home(
 
     html = f"""
 <!DOCTYPE html>
-<html>
+<html lang="nl">
 <head>
+    <meta charset="UTF-8">
     <title>Trackday Finder</title>
     <style>
         body {{
@@ -426,6 +467,7 @@ def home(
             border: 1px solid #ddd;
             font-size: 16px;
             width: 100%;
+            box-sizing: border-box;
         }}
 
         button {{
@@ -437,6 +479,10 @@ def home(
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
+        }}
+
+        button:hover {{
+            background: #dc2626;
         }}
 
         .reset {{
@@ -508,6 +554,10 @@ def home(
             font-weight: bold;
         }}
 
+        .link-button:hover {{
+            background: #374151;
+        }}
+
         @media (max-width: 950px) {{
             .filters {{
                 grid-template-columns: 1fr;
@@ -548,7 +598,7 @@ def home(
         <div class="card">
             <div class="badge">{event["organisatie"]}</div>
             <div class="circuit">{event["circuit"]}</div>
-            <div class="meta"><b>Datum:</b> {event["date"]}</div>
+            <div class="meta"><b>Datum:</b> {format_date(event["date"])}</div>
             <div class="meta"><b>Organisatie:</b> {event["organisatie"]}</div>
             <div class="price">Prijs: {event["price"]}</div>
             <div class="raw">{event["raw"]}</div>
