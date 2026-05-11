@@ -60,6 +60,8 @@ CIRCUIT_ALIASES = {
     "bilster": "Bilster Berg",
     "nürburgring": "Nürburgring",
     "nurburgring": "Nürburgring",
+    "folembray": "Folembray",
+    "clastres": "Clastres",
 }
 
 
@@ -292,22 +294,46 @@ def get_circuitdagen_events():
     events = []
     seen = set()
 
+    skip_texts = [
+        "info",
+        "this is your heading text",
+        "heading",
+        "boeken",
+        "beschikbaar",
+        "plekken",
+        "vrij rijden",
+        "karting",
+        "video laden",
+        "groepen",
+        "sessies",
+        "instructie",
+        "vanaf",
+    ]
+
     try:
         response = requests.get(url, headers=HEADERS, timeout=10)
         response.raise_for_status()
         soup = BeautifulSoup(response.text, "html.parser")
 
         lines = [
-            clean_bad_encoding(line.strip())
+            clean_bad_encoding(line.strip()).replace("###", "").strip()
             for line in soup.get_text("\n").splitlines()
             if line.strip()
         ]
+
+        info_links = [
+            a for a in soup.find_all("a")
+            if "info" in a.get_text(" ", strip=True).lower()
+            and "boeken" in a.get_text(" ", strip=True).lower()
+        ]
+
+        info_counter = 0
 
         for i, line in enumerate(lines):
             if "info & boeken" not in line.lower():
                 continue
 
-            block = lines[max(0, i - 10):i + 1]
+            block = lines[max(0, i - 14):i + 1]
             block_text = " ".join(block)
             date_text = find_text_date(block_text)
 
@@ -317,27 +343,39 @@ def get_circuitdagen_events():
             circuit = None
 
             for item in reversed(block):
-                lower = item.lower()
+                clean_item = clean_bad_encoding(item).strip()
+                lower = clean_item.lower()
 
-                if "€" in item:
+                if not clean_item:
                     continue
 
-                if re.search(r"\d", item):
+                if "€" in clean_item:
                     continue
 
-                if len(item) < 3:
+                if re.search(r"\d", clean_item):
                     continue
 
-                if "info" in lower:
+                if len(clean_item) < 3:
                     continue
 
-                circuit = clean_circuit_name(item)
+                if any(skip in lower for skip in skip_texts):
+                    continue
+
+                circuit = clean_circuit_name(clean_item)
                 break
 
             if not circuit:
                 continue
 
-            key = f"{date_text}-{circuit}-Circuitdagen.be"
+            event_url = url
+            if info_counter < len(info_links):
+                href = info_links[info_counter].get("href")
+                if href:
+                    event_url = urljoin(url, href)
+
+            info_counter += 1
+
+            key = f"{date_text}-{circuit}-Circuitdagen.be-{event_url}"
             if key in seen:
                 continue
 
@@ -349,7 +387,7 @@ def get_circuitdagen_events():
                 "circuit": circuit,
                 "organisatie": "Circuitdagen.be",
                 "price": "Zie organisatie",
-                "url": url,
+                "url": event_url,
                 "raw": block_text,
             })
 
@@ -727,15 +765,6 @@ button:hover {{
     font-weight: bold;
 }}
 
-.api-link {{
-    display: inline-block;
-    margin-top: 12px;
-    margin-left: 15px;
-    color: #111827;
-    text-decoration: none;
-    font-weight: bold;
-}}
-
 .count {{
     color: white;
     margin-bottom: 15px;
@@ -835,7 +864,6 @@ button:hover {{
         </form>
 
         <a class="reset" href="/">Filters wissen</a>
-        <a class="api-link" href="/api/events" target="_blank">API bekijken</a>
     </div>
 
     <p class="count">Resultaten: {len(events)}</p>
