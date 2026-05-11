@@ -378,7 +378,6 @@ def get_circuitdagen_events():
         print("Circuitdagen.be fout:", e)
 
     return events
-    
     def get_trackzone_events():
     url = "https://trackzone.nl/"
     events = []
