@@ -15,6 +15,10 @@ MONTHS = {
     "apr": "04", "mei": "05", "may": "05", "jun": "06",
     "jul": "07", "aug": "08", "sep": "09", "okt": "10",
     "oct": "10", "nov": "11", "dec": "12",
+    "januari": "01", "februari": "02", "maart": "03",
+    "april": "04", "juni": "06", "juli": "07",
+    "augustus": "08", "september": "09", "oktober": "10",
+    "november": "11", "december": "12",
 }
 
 
@@ -23,23 +27,6 @@ def clean_circuit_name(name):
     name = name.replace("croix en ternois", "Croix")
     name = name.replace("croix-en-ternois", "Croix")
     return name.title()
-
-
-def find_trackdays_date(text):
-    lower = text.lower().replace(".", "")
-    pattern = r"\b(\d{1,2})(?:\s*-\s*\d{1,2})?\s+(jan|feb|mrt|mar|apr|mei|may|jun|jul|aug|sep|okt|oct|nov|dec)\b"
-    matches = re.findall(pattern, lower)
-
-    if not matches:
-        return None
-
-    day, month_name = matches[-1]
-    month = MONTHS.get(month_name)
-
-    if not month:
-        return None
-
-    return f"{day.zfill(2)}/{month}/2026"
 
 
 def parse_date(date_text):
@@ -56,6 +43,25 @@ def get_month_number(date_text):
         return ""
 
 
+def find_text_date(text):
+    lower = text.lower().replace(".", "")
+
+    pattern = r"\b(\d{1,2})(?:\s*(?:-|&)\s*\d{1,2})?\s+(jan|feb|mrt|mar|apr|mei|may|jun|jul|aug|sep|okt|oct|nov|dec|januari|februari|maart|april|juni|juli|augustus|september|oktober|november|december)\s*(2026)?\b"
+
+    matches = re.findall(pattern, lower)
+
+    if not matches:
+        return None
+
+    day, month_name, year = matches[-1]
+    month = MONTHS.get(month_name)
+
+    if not month:
+        return None
+
+    return f"{day.zfill(2)}/{month}/2026"
+
+
 def get_intertrack_events():
     events = []
     seen = set()
@@ -68,28 +74,22 @@ def get_intertrack_events():
 
         for line in text.splitlines():
             clean = line.strip()
-
             if not clean:
                 continue
 
             date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
-
             if not date_match:
                 continue
 
             date_text = date_match.group()
 
             parts = clean.split("-")
-            if len(parts) >= 2:
-                circuit = clean_circuit_name(parts[-1])
-            else:
-                circuit = "Onbekend"
+            circuit = clean_circuit_name(parts[-1]) if len(parts) >= 2 else "Onbekend"
 
             if circuit == "Onbekend":
                 continue
 
             key = f"{date_text}-{circuit}-Intertrack"
-
             if key in seen:
                 continue
 
@@ -156,48 +156,33 @@ def get_trackdays_events():
             if line.strip()
         ]
 
-        for a in soup.find_all("a"):
+        booking_positions = [
+            i for i, line in enumerate(all_text_lines)
+            if line.lower() == "boeken"
+        ]
+
+        booking_links = [
+            a for a in soup.find_all("a")
+            if a.get("href") and "/booking/" in a.get("href")
+        ]
+
+        for index, a in enumerate(booking_links):
+            if index >= len(booking_positions):
+                continue
+
             href = a.get("href")
-            link_text = a.get_text(" ", strip=True).lower()
-
-            if not href or "/booking/" not in href:
-                continue
-
             booking_url = urljoin(url, href)
-
-            flat_text = soup.get_text("\n")
-            booking_text = a.get_text(" ", strip=True)
-
-            lines = all_text_lines
-
-            booking_positions = [
-                i for i, line in enumerate(lines)
-                if line.lower() == "boeken"
-            ]
-
-            booking_number = 0
-            for previous_a in soup.find_all("a"):
-                previous_href = previous_a.get("href")
-                if previous_href and "/booking/" in previous_href:
-                    if previous_a == a:
-                        break
-                    booking_number += 1
-
-            if booking_number >= len(booking_positions):
-                continue
-
-            pos = booking_positions[booking_number]
-            nearby_lines = lines[max(0, pos - 12):pos + 1]
+            pos = booking_positions[index]
+            nearby_lines = all_text_lines[max(0, pos - 12):pos + 1]
             nearby = "\n".join(nearby_lines)
 
-            date_text = find_trackdays_date(nearby)
+            date_text = find_text_date(nearby)
             circuit = detect_trackdays_circuit(nearby)
 
             if not date_text or not circuit:
                 continue
 
             key = f"{date_text}-{circuit}-Trackdays.be-{booking_url}"
-
             if key in seen:
                 continue
 
@@ -219,20 +204,113 @@ def get_trackdays_events():
     return events
 
 
+def detect_circuitdagen_circuit(block_lines):
+    skip = [
+        "info & boeken", "vanaf", "groepen", "sessies", "instructie",
+        "plekken", "beschikbaar", "bochten", "heading", "video laden"
+    ]
+
+    for line in block_lines:
+        clean = line.strip()
+        lower = clean.lower()
+
+        if not clean:
+            continue
+
+        if any(word in lower for word in skip):
+            continue
+
+        if "€" in clean:
+            continue
+
+        if re.search(r"\d", clean):
+            continue
+
+        if len(clean) < 3:
+            continue
+
+        return clean_circuit_name(clean)
+
+    return None
+
+
+def get_circuitdagen_events():
+    url = "https://circuitdagen.be"
+    events = []
+    seen = set()
+
+    try:
+        response = requests.get(url, headers=HEADERS, timeout=10)
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        lines = [
+            line.strip().replace("###", "").strip()
+            for line in soup.get_text("\n").splitlines()
+            if line.strip()
+        ]
+
+        info_positions = [
+            i for i, line in enumerate(lines)
+            if "info & boeken" in line.lower()
+        ]
+
+        info_links = [
+            a for a in soup.find_all("a")
+            if "info" in a.get_text(" ", strip=True).lower()
+            and "boeken" in a.get_text(" ", strip=True).lower()
+        ]
+
+        for index, pos in enumerate(info_positions):
+            block_lines = lines[max(0, pos - 12):pos + 1]
+            block_text = " ".join(block_lines)
+
+            date_text = find_text_date(block_text)
+            circuit = detect_circuitdagen_circuit(block_lines)
+
+            if not date_text or not circuit:
+                continue
+
+            event_url = url
+            if index < len(info_links):
+                href = info_links[index].get("href")
+                if href:
+                    event_url = urljoin(url, href)
+
+            key = f"{date_text}-{circuit}-Circuitdagen.be-{event_url}"
+            if key in seen:
+                continue
+
+            seen.add(key)
+
+            events.append({
+                "date": date_text,
+                "date_obj": parse_date(date_text),
+                "circuit": circuit,
+                "organisatie": "Circuitdagen.be",
+                "price": "Zie organisatie",
+                "url": event_url,
+                "raw": block_text
+            })
+
+    except Exception as e:
+        print("Circuitdagen.be fout:", e)
+
+    return events
+
+
 def get_events():
     events = []
     events += get_intertrack_events()
     events += get_trackdays_events()
+    events += get_circuitdagen_events()
 
     unique = []
     seen = set()
 
     for event in events:
-        key = f"{event['date']}-{event['circuit']}-{event['organisatie']}"
-
+        key = f"{event['date']}-{event['circuit']}-{event['organisatie']}-{event['url']}"
         if key in seen:
             continue
-
         seen.add(key)
         unique.append(event)
 
@@ -291,18 +369,10 @@ def home(
         organisatie_options += option_html(org, org, organisatie)
 
     months_display = [
-        ("", "Alle maanden"),
-        ("01", "Januari"),
-        ("02", "Februari"),
-        ("03", "Maart"),
-        ("04", "April"),
-        ("05", "Mei"),
-        ("06", "Juni"),
-        ("07", "Juli"),
-        ("08", "Augustus"),
-        ("09", "September"),
-        ("10", "Oktober"),
-        ("11", "November"),
+        ("", "Alle maanden"), ("01", "Januari"), ("02", "Februari"),
+        ("03", "Maart"), ("04", "April"), ("05", "Mei"),
+        ("06", "Juni"), ("07", "Juli"), ("08", "Augustus"),
+        ("09", "September"), ("10", "Oktober"), ("11", "November"),
         ("12", "December"),
     ]
 
@@ -331,16 +401,6 @@ def home(
             color: white;
         }}
 
-        .header h1 {{
-            margin: 0;
-            font-size: 42px;
-        }}
-
-        .header p {{
-            color: #d1d5db;
-            font-size: 18px;
-        }}
-
         .container {{
             max-width: 1150px;
             margin: auto;
@@ -352,7 +412,6 @@ def home(
             padding: 20px;
             border-radius: 16px;
             margin-bottom: 20px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.20);
         }}
 
         .filters {{
@@ -398,7 +457,6 @@ def home(
             padding: 20px;
             border-radius: 16px;
             margin-bottom: 15px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.20);
         }}
 
         .badge {{
@@ -450,22 +508,13 @@ def home(
             font-weight: bold;
         }}
 
-        .link-button:hover {{
-            background: #374151;
-        }}
-
         @media (max-width: 950px) {{
             .filters {{
                 grid-template-columns: 1fr;
             }}
-
-            .header h1 {{
-                font-size: 34px;
-            }}
         }}
     </style>
 </head>
-
 <body>
     <div class="header">
         <h1>Trackday Finder</h1>
@@ -476,15 +525,9 @@ def home(
         <div class="searchbox">
             <form method="get" action="/" class="filters">
                 <input type="text" name="q" placeholder="Vrij zoeken..." value="{q}">
-                <select name="circuit">
-                    {circuit_options}
-                </select>
-                <select name="organisatie">
-                    {organisatie_options}
-                </select>
-                <select name="maand">
-                    {month_options}
-                </select>
+                <select name="circuit">{circuit_options}</select>
+                <select name="organisatie">{organisatie_options}</select>
+                <select name="maand">{month_options}</select>
                 <select name="toekomst">
                     <option value="ja" {future_yes}>Alleen toekomst</option>
                     <option value="nee" {future_no}>Alles tonen</option>
@@ -498,11 +541,7 @@ def home(
 """
 
     if len(events) == 0:
-        html += """
-        <div class="card">
-            Geen resultaten gevonden.
-        </div>
-        """
+        html += '<div class="card">Geen resultaten gevonden.</div>'
     else:
         for event in events:
             html += f"""
