@@ -11,12 +11,15 @@ from urllib.parse import urljoin
 app = FastAPI()
 
 HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
-                  "(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/122.0.0.0 Safari/537.36"
+    ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "Accept-Language": "nl-NL,nl;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Referer": "https://www.google.com/",
 }
+
 CACHE_SECONDS = 900
 _cache = {"time": 0, "events": []}
 
@@ -29,6 +32,34 @@ MONTHS = {
     "april": "04", "juni": "06", "juli": "07",
     "augustus": "08", "september": "09", "oktober": "10",
     "november": "11", "december": "12",
+}
+
+CIRCUIT_ALIASES = {
+    "spa-francorchamps": "Spa-Francorchamps",
+    "spa francorchamps": "Spa-Francorchamps",
+    "francorchamps": "Spa-Francorchamps",
+    "circuit de spa": "Spa-Francorchamps",
+    "spa": "Spa-Francorchamps",
+
+    "circuit zolder": "Zolder",
+    "zolder circuit": "Zolder",
+    "zolder": "Zolder",
+
+    "ecuyers": "Ecuyers",
+    "écuyers": "Ecuyers",
+
+    "croix en ternois": "Croix",
+    "croix-en-ternois": "Croix",
+    "croix": "Croix",
+
+    "mettet": "Mettet",
+    "assen": "Assen",
+    "zandvoort": "Zandvoort",
+    "meppen": "Meppen",
+    "val de vienne": "Val De Vienne",
+    "bilster": "Bilster Berg",
+    "nürburgring": "Nürburgring",
+    "nurburgring": "Nürburgring",
 }
 
 
@@ -46,28 +77,13 @@ def clean_bad_encoding(text):
 
 def clean_circuit_name(name):
     name = clean_bad_encoding(name).lower().strip()
+    name = name.replace("track", "").strip()
 
-    replacements = {
-        "track": "",
-        "croix en ternois": "Croix",
-        "croix-en-ternois": "Croix",
-        "circuit de spa-francorchamps": "Spa-Francorchamps",
-        "spa francorchamps": "Spa-Francorchamps",
-        "spa-francorchamps": "Spa-Francorchamps",
-        "zolder circuit": "Zolder",
-        "circuit zolder": "Zolder",
-        "val de vienne": "Val De Vienne",
-        "ecuyers": "Ecuyers",
-        "écuyers": "Ecuyers",
-        "meppen": "Meppen",
-        "assen": "Assen",
-        "mettet": "Mettet",
-    }
+    for alias, clean_name in CIRCUIT_ALIASES.items():
+        if alias in name:
+            return clean_name
 
-    for old, new in replacements.items():
-        name = name.replace(old, new)
-
-    return name.strip().title()
+    return name.title()
 
 
 def parse_date(date_text):
@@ -129,11 +145,7 @@ def get_intertrack_events():
         for line in text.splitlines():
             clean = clean_bad_encoding(line.strip())
 
-            if not clean:
-                continue
-
             date_match = re.search(r"\d{2}/\d{2}/\d{4}", clean)
-
             if not date_match:
                 continue
 
@@ -145,7 +157,6 @@ def get_intertrack_events():
                 continue
 
             key = f"{date_text}-{circuit}-Intertrack"
-
             if key in seen:
                 continue
 
@@ -158,7 +169,7 @@ def get_intertrack_events():
                 "organisatie": "Intertrack",
                 "price": "Zie organisatie",
                 "url": source_url,
-                "raw": clean
+                "raw": clean,
             })
 
     except Exception as e:
@@ -174,11 +185,7 @@ def detect_trackdays_circuit(block_text):
         if clean_bad_encoding(line.strip())
     ]
 
-    known_circuits = [
-        "zolder", "spa", "francorchamps", "mettet", "croix", "ternois",
-        "clastres", "folembray", "ecuyers", "écuyers", "meppen",
-        "bilster", "nürburgring", "nurburgring", "assen", "zandvoort",
-    ]
+    known_circuits = list(CIRCUIT_ALIASES.keys())
 
     skip_words = [
         "boeken", "promotie", "vrijdag", "zaterdag", "zondag",
@@ -188,7 +195,6 @@ def detect_trackdays_circuit(block_text):
 
     for line in reversed(lines):
         lower = line.lower()
-
         if any(c in lower for c in known_circuits):
             return clean_circuit_name(line)
 
@@ -260,7 +266,6 @@ def get_trackdays_events():
                 continue
 
             key = f"{date_text}-{circuit}-Trackdays.be-{booking_url}"
-
             if key in seen:
                 continue
 
@@ -273,7 +278,7 @@ def get_trackdays_events():
                 "organisatie": "Trackdays.be",
                 "price": "Zie organisatie",
                 "url": booking_url,
-                "raw": " ".join(nearby_lines)
+                "raw": " ".join(nearby_lines),
             })
 
     except Exception as e:
@@ -333,7 +338,6 @@ def get_circuitdagen_events():
                 continue
 
             key = f"{date_text}-{circuit}-Circuitdagen.be"
-
             if key in seen:
                 continue
 
@@ -346,7 +350,7 @@ def get_circuitdagen_events():
                 "organisatie": "Circuitdagen.be",
                 "price": "Zie organisatie",
                 "url": url,
-                "raw": block_text
+                "raw": block_text,
             })
 
     except Exception as e:
@@ -385,20 +389,18 @@ def get_trackzone_events():
             for b in block_lines:
                 lower = b.lower()
 
-                if "meppen" in lower:
-                    circuit = "Meppen"
-                elif "ecuyers" in lower or "écuyers" in lower:
-                    circuit = "Ecuyers"
-                elif "zolder" in lower:
-                    circuit = "Zolder"
-                elif "spa" in lower:
-                    circuit = "Spa-Francorchamps"
+                for alias in CIRCUIT_ALIASES:
+                    if alias in lower:
+                        circuit = clean_circuit_name(alias)
+                        break
+
+                if circuit:
+                    break
 
             if not circuit:
                 continue
 
             key = f"{date_text}-{circuit}-Trackzone.nl"
-
             if key in seen:
                 continue
 
@@ -411,7 +413,7 @@ def get_trackzone_events():
                 "organisatie": "Trackzone.nl",
                 "price": "Zie organisatie",
                 "url": url,
-                "raw": block_text
+                "raw": block_text,
             })
 
     except Exception as e:
@@ -421,89 +423,57 @@ def get_trackzone_events():
 
 
 def get_trackdays4all_events():
-
     url = "https://www.trackdays4all.nl/circuittrainingen/"
-
     events = []
 
     try:
-
         session = requests.Session()
 
         response = session.get(
             url,
             headers={
-                "User-Agent": (
-                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                    "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/122.0.0.0 Safari/537.36"
-                ),
-                "Accept": (
-                    "text/html,application/xhtml+xml,"
-                    "application/xml;q=0.9,image/webp,*/*;q=0.8"
-                ),
-                "Accept-Language": "nl-NL,nl;q=0.9,en;q=0.8",
+                **HEADERS,
                 "Referer": "https://www.google.com/",
                 "Connection": "keep-alive",
                 "Upgrade-Insecure-Requests": "1",
             },
             timeout=20,
-            allow_redirects=True
+            allow_redirects=True,
         )
 
         if response.status_code == 403:
             print("Trackdays4all geblokkeerd door anti-bot bescherming")
             return []
 
+        response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
 
-        text = clean_bad_encoding(
-            soup.get_text("\n")
-        )
-
         lines = [
-            line.strip()
-            for line in text.splitlines()
+            clean_bad_encoding(line.strip())
+            for line in soup.get_text("\n").splitlines()
             if line.strip()
-        ]
-
-        known_circuits = [
-            "assen",
-            "ecuyers",
-            "écuyers",
-            "val de vienne",
-            "zolder",
-            "spa",
-            "mettet",
-            "croix",
-            "meppen",
-            "zandvoort",
         ]
 
         seen = set()
 
         for i, line in enumerate(lines):
-
             date_text = find_text_date(line)
 
             if not date_text:
                 continue
 
             block = lines[max(0, i - 5):i + 8]
-
             block_text = " ".join(block)
 
             circuit = None
 
             for b in block:
-
                 lower = b.lower()
 
-                for known in known_circuits:
-
-                    if known in lower:
-                        circuit = clean_circuit_name(known)
+                for alias in CIRCUIT_ALIASES:
+                    if alias in lower:
+                        circuit = clean_circuit_name(alias)
                         break
 
                 if circuit:
@@ -512,8 +482,7 @@ def get_trackdays4all_events():
             if not circuit:
                 continue
 
-            key = f"{date_text}-{circuit}"
-
+            key = f"{date_text}-{circuit}-Trackdays4all"
             if key in seen:
                 continue
 
@@ -526,13 +495,14 @@ def get_trackdays4all_events():
                 "organisatie": "Trackdays4all",
                 "price": "Zie organisatie",
                 "url": url,
-                "raw": block_text
+                "raw": block_text,
             })
 
     except Exception as e:
         print("Trackdays4all fout:", e)
 
     return events
+
 
 def scrape_events():
     events = []
@@ -541,6 +511,7 @@ def scrape_events():
     events += get_trackdays_events()
     events += get_circuitdagen_events()
     events += get_trackzone_events()
+    events += get_trackdays4all_events()
 
     unique = []
     seen = set()
@@ -582,20 +553,39 @@ def health():
     return {"status": "ok"}
 
 
+@app.get("/api/events")
+def api_events():
+    events = get_events()
+
+    return [
+        {
+            "date": event["date"],
+            "date_formatted": format_date(event["date"]),
+            "circuit": event["circuit"],
+            "organisatie": event["organisatie"],
+            "price": event["price"],
+            "url": event["url"],
+            "raw": event["raw"],
+        }
+        for event in events
+    ]
+
+
 @app.get("/", response_class=HTMLResponse)
 def home(
     q: str = Query(default=""),
     circuit: str = Query(default=""),
     organisatie: str = Query(default=""),
     maand: str = Query(default=""),
-    toekomst: str = Query(default="ja")
+    toekomst: str = Query(default="ja"),
+    sort: str = Query(default="date"),
 ):
     all_events = get_events()
 
     circuits = sorted(set(event["circuit"] for event in all_events))
     organisaties = sorted(set(event["organisatie"] for event in all_events))
 
-    events = all_events
+    events = list(all_events)
 
     if toekomst == "ja":
         today = date.today()
@@ -618,6 +608,13 @@ def home(
 
     if maand:
         events = [e for e in events if get_month_number(e["date"]) == maand]
+
+    if sort == "circuit":
+        events.sort(key=lambda e: e["circuit"])
+    elif sort == "organisatie":
+        events.sort(key=lambda e: e["organisatie"])
+    else:
+        events.sort(key=lambda e: e["date_obj"])
 
     circuit_options = '<option value="">Alle circuits</option>'
     for c in circuits:
@@ -646,6 +643,11 @@ def home(
     month_options = ""
     for value, label in months_display:
         month_options += option_html(value, label, maand)
+
+    sort_options = ""
+    sort_options += option_html("date", "Sorteer op datum", sort)
+    sort_options += option_html("circuit", "Sorteer op circuit", sort)
+    sort_options += option_html("organisatie", "Sorteer op organisatie", sort)
 
     future_yes = "selected" if toekomst == "ja" else ""
     future_no = "selected" if toekomst == "nee" else ""
@@ -682,11 +684,14 @@ body {{
     padding: 20px;
     border-radius: 16px;
     margin-bottom: 20px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
 }}
 
 .filters {{
     display: grid;
-    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr auto;
+    grid-template-columns: 1.5fr 1fr 1fr 1fr 1fr 1fr auto;
     gap: 10px;
 }}
 
@@ -718,6 +723,15 @@ button:hover {{
     display: inline-block;
     margin-top: 12px;
     color: #ef4444;
+    text-decoration: none;
+    font-weight: bold;
+}}
+
+.api-link {{
+    display: inline-block;
+    margin-top: 12px;
+    margin-left: 15px;
+    color: #111827;
     text-decoration: none;
     font-weight: bold;
 }}
@@ -787,9 +801,13 @@ button:hover {{
     background: #374151;
 }}
 
-@media (max-width: 950px) {{
+@media (max-width: 1050px) {{
     .filters {{
         grid-template-columns: 1fr;
+    }}
+
+    .searchbox {{
+        position: static;
     }}
 }}
 </style>
@@ -812,10 +830,12 @@ button:hover {{
                 <option value="ja" {future_yes}>Alleen toekomst</option>
                 <option value="nee" {future_no}>Alles tonen</option>
             </select>
+            <select name="sort">{sort_options}</select>
             <button type="submit">Zoeken</button>
         </form>
 
         <a class="reset" href="/">Filters wissen</a>
+        <a class="api-link" href="/api/events" target="_blank">API bekijken</a>
     </div>
 
     <p class="count">Resultaten: {len(events)}</p>
