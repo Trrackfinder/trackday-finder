@@ -455,7 +455,6 @@ def get_trackdays4all_events():
             print("Trackdays4all geblokkeerd door anti-bot bescherming")
             return []
 
-        response.raise_for_status()
 
         soup = BeautifulSoup(response.text, "html.parser")
 
