@@ -379,7 +379,7 @@ def get_circuitdagen_events():
 
     return events
     
-    def get_trackzone_events():
+def get_trackzone_events():
     url = "https://trackzone.nl/"
     events = []
     seen = set()
