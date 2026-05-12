@@ -2112,6 +2112,51 @@ if (installButton) {
 }
 
 </script>
+<script>
+let deferredPrompt;
+
+const installBtn = document.getElementById('installBtn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+
+    // Stop automatic popup
+    e.preventDefault();
+
+    // Save the event
+    deferredPrompt = e;
+
+    // Show install button
+    installBtn.style.display = 'block';
+});
+
+installBtn.addEventListener('click', async () => {
+
+    if (!deferredPrompt) {
+        alert("Install not available yet");
+        return;
+    }
+
+    // Open install popup
+    deferredPrompt.prompt();
+
+    // Wait for user choice
+    const { outcome } = await deferredPrompt.userChoice;
+
+    console.log('Install result:', outcome);
+
+    deferredPrompt = null;
+
+    // Hide button after install
+    installBtn.style.display = 'none';
+});
+
+window.addEventListener('appinstalled', () => {
+
+    console.log('PWA installed');
+
+    installBtn.style.display = 'none';
+});
+</script>
 </body>
 </html>
 """
