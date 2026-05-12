@@ -24,8 +24,8 @@ HEADERS = {
 
 CACHE_SECONDS = 900
 _cache = {"time": 0, "events": []}
-    DB_PATH = "trackdays.db"
-    SCRAPE_INTERVAL_SECONDS = 3600
+DB_PATH = "trackdays.db"
+SCRAPE_INTERVAL_SECONDS = 3600
 
 MONTHS = {
     "jan": "01", "feb": "02", "mrt": "03", "mar": "03",
