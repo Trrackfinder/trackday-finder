@@ -1,6 +1,7 @@
 import os
 from fastapi import FastAPI, Query
 from fastapi.responses import HTMLResponse, Response
+from fastapi.staticfiles import StaticFiles
 import requests
 from bs4 import BeautifulSoup
 import re
