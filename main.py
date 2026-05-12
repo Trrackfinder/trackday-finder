@@ -1947,9 +1947,9 @@ button {{
         Installeer app
     </button>
 
+    </details>
 </div>
 
-</details>
 
     {calendar_html}
 
