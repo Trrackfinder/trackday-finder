@@ -1925,6 +1925,12 @@ button {{
     }}
 }}
 </style>
+<link rel="manifest" href="/static/manifest.json">
+
+<meta name="theme-color" content="#111111">
+
+<link rel="apple-touch-icon" href="/static/icon-192.png">
+
 </head>
 
 <body>
