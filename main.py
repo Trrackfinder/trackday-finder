@@ -6,6 +6,7 @@ import re
 import time
 import html
 import calendar
+import sqlite3
 from datetime import datetime, date, timedelta
 from urllib.parse import urljoin, quote
 
@@ -23,6 +24,8 @@ HEADERS = {
 
 CACHE_SECONDS = 900
 _cache = {"time": 0, "events": []}
+    DB_PATH = "trackdays.db"
+    SCRAPE_INTERVAL_SECONDS = 3600
 
 MONTHS = {
     "jan": "01", "feb": "02", "mrt": "03", "mar": "03",
@@ -552,6 +555,197 @@ def scrape_events():
 
     return unique
 
+def init_db():
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            date TEXT NOT NULL,
+            circuit TEXT NOT NULL,
+            organisatie TEXT NOT NULL,
+            price TEXT NOT NULL,
+            url TEXT NOT NULL,
+            raw TEXT,
+            updated_at TEXT NOT NULL,
+            UNIQUE(date, circuit, organisatie, url)
+        )
+    """)
+
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS scrape_status (
+            id INTEGER PRIMARY KEY CHECK (id = 1),
+            last_scrape_at TEXT,
+            last_success_at TEXT,
+            last_error TEXT,
+            event_count INTEGER DEFAULT 0
+        )
+    """)
+
+    cursor.execute("""
+        INSERT OR IGNORE INTO scrape_status (
+            id,
+            last_scrape_at,
+            last_success_at,
+            last_error,
+            event_count
+        )
+        VALUES (1, NULL, NULL, NULL, 0)
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+def save_events_to_db(events):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute("DELETE FROM events")
+
+    for event in events:
+        cursor.execute("""
+            INSERT OR REPLACE INTO events (
+                date,
+                circuit,
+                organisatie,
+                price,
+                url,
+                raw,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            event["date"],
+            event["circuit"],
+            event["organisatie"],
+            event["price"],
+            event["url"],
+            event.get("raw", ""),
+            now,
+        ))
+
+    cursor.execute("""
+        UPDATE scrape_status
+        SET
+            last_scrape_at = ?,
+            last_success_at = ?,
+            last_error = NULL,
+            event_count = ?
+        WHERE id = 1
+    """, (
+        now,
+        now,
+        len(events),
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def load_events_from_db():
+    init_db()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    rows = cursor.execute("""
+        SELECT
+            date,
+            circuit,
+            organisatie,
+            price,
+            url,
+            raw
+        FROM events
+        ORDER BY date ASC
+    """).fetchall()
+
+    conn.close()
+
+    events = []
+
+    for row in rows:
+        events.append({
+            "date": row["date"],
+            "date_obj": parse_date(row["date"]),
+            "circuit": row["circuit"],
+            "organisatie": row["organisatie"],
+            "price": row["price"],
+            "url": row["url"],
+            "raw": row["raw"] or "",
+        })
+
+    events.sort(key=lambda e: e["date_obj"])
+
+    return events
+
+
+def get_db_status():
+    init_db()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    row = cursor.execute("""
+        SELECT
+            last_scrape_at,
+            last_success_at,
+            last_error,
+            event_count
+        FROM scrape_status
+        WHERE id = 1
+    """).fetchone()
+
+    conn.close()
+
+    if not row:
+        return None
+
+    return dict(row)
+
+
+def db_cache_is_fresh():
+    status = get_db_status()
+
+    if not status or not status.get("last_success_at"):
+        return False
+
+    try:
+        last_success = datetime.fromisoformat(status["last_success_at"])
+        age = datetime.utcnow() - last_success
+        return age.total_seconds() < SCRAPE_INTERVAL_SECONDS
+    except Exception:
+        return False
+
+
+def mark_scrape_error(error):
+    init_db()
+
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+
+    now = datetime.utcnow().isoformat()
+
+    cursor.execute("""
+        UPDATE scrape_status
+        SET
+            last_scrape_at = ?,
+            last_error = ?
+        WHERE id = 1
+    """, (
+        now,
+        str(error),
+    ))
+
+    conn.commit()
+    conn.close()
+
 
 def get_events():
     now = time.time()
@@ -559,12 +753,33 @@ def get_events():
     if _cache["events"] and now - _cache["time"] < CACHE_SECONDS:
         return _cache["events"]
 
-    events = scrape_events()
+    init_db()
 
-    _cache["events"] = events
-    _cache["time"] = now
+    if db_cache_is_fresh():
+        events = load_events_from_db()
+        _cache["events"] = events
+        _cache["time"] = now
+        return events
 
-    return events
+    try:
+        events = scrape_events()
+        save_events_to_db(events)
+
+        _cache["events"] = events
+        _cache["time"] = now
+
+        return events
+
+    except Exception as e:
+        print("Algemene scrape fout:", e)
+        mark_scrape_error(e)
+
+        fallback_events = load_events_from_db()
+
+        _cache["events"] = fallback_events
+        _cache["time"] = now
+
+        return fallback_events
 
 
 def option_html(value, label, selected_value):
@@ -687,7 +902,10 @@ def build_calendar(events, cal_year, cal_month, selected_day):
 
     return html_cal
 
-
+@app.on_event("startup")
+def startup():
+    init_db()
+    
 @app.get("/health")
 def health():
     return {"status": "ok"}
