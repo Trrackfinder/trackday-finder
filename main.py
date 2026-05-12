@@ -1948,6 +1948,7 @@ button {{
     </button>
 
 </div>
+
 </details>
 
     {calendar_html}
