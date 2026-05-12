@@ -1179,6 +1179,50 @@ def admin_refresh(
             "message": str(e),
         }
 
+@app.get("/robots.txt")
+def robots():
+
+    content = """
+User-agent: *
+Allow: /
+
+Sitemap: https://trackday-finder.onrender.com/sitemap.xml
+"""
+
+    return Response(
+        content=content,
+        media_type="text/plain"
+    )
+
+@app.get("/sitemap.xml")
+def sitemap():
+
+    base = "https://trackday-finder.onrender.com/"
+
+    content = f"""<?xml version="1.0" encoding="UTF-8"?>
+
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+
+    <url>
+        <loc>{base}/</loc>
+    </url>
+
+    <url>
+        <loc>{base}/admin</loc>
+    </url>
+
+    <url>
+        <loc>{base}/api/events</loc>
+    </url>
+
+</urlset>
+"""
+
+    return Response(
+        content=content,
+        media_type="application/xml"
+    )
+
 @app.get("/", response_class=HTMLResponse)
 def home(
     q: str = Query(default=""),
