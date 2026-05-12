@@ -1929,6 +1929,24 @@ button {{
 
 <body>
 
+<button id="installBtn"
+    style="
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        background: #2563eb;
+        color: white;
+        border: none;
+        padding: 14px 18px;
+        border-radius: 12px;
+        font-size: 16px;
+        font-weight: bold;
+        cursor: pointer;
+        z-index: 9999;
+    ">
+    📲 Install App
+</button>
+
 <div class="header">
     <h1>Trackday Finder</h1>
     <p>Zoek en filter trackdays op circuit, organisatie en maand</p>
