@@ -2071,7 +2071,7 @@ if ("serviceWorker" in navigator) {
 let deferredPrompt;
 
 const installButton =
-    document.getElementById("installButton");
+    document.getElementById("installBtn");
 
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js");
