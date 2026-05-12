@@ -1043,18 +1043,24 @@ def admin(
 <title>Admin - Trackday Finder</title>
 
 <style>
-body {{
+<style>
+body {
     margin: 0;
     font-family: Arial, sans-serif;
     background: #111827;
     color: white;
-}}
+}
 
-.container {{
+.container {
     max-width: 900px;
     margin: auto;
     padding: 24px;
-}}
+}
+</style>
+
+<button id="installBtn" style="display:none;">
+  📲 Install App
+</button>
 
 .card {{
     background: white;
