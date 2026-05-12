@@ -11,6 +11,7 @@ from datetime import datetime, date, timedelta
 from urllib.parse import urljoin, quote
 
 app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 HEADERS = {
     "User-Agent": (
