@@ -1,10 +1,11 @@
 {
-  "name": "Trackday Finder",
+  "name": "Trackday Finder Benelux",
   "short_name": "Trackday",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#111111",
+  "background_color": "#111111",
+  "theme_color": "#111111"
+}
   "icons": [
     {
       "src": "/static/icons/icon-192.png",
