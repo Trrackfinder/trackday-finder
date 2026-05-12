@@ -1223,6 +1223,55 @@ def sitemap():
         media_type="application/xml"
     )
 
+@app.get("/manifest.json")
+def manifest():
+    return {
+        "name": "Trackday Finder",
+        "short_name": "Trackdays",
+        "description": "Vind trackdays en circuitdagen in België, Nederland en omstreken.",
+        "start_url": "/",
+        "display": "standalone",
+        "background_color": "#111827",
+        "theme_color": "#ef4444",
+        "orientation": "portrait",
+        "scope": "/",
+        "icons": [
+            {
+                "src": "https://via.placeholder.com/192x192.png?text=TF",
+                "sizes": "192x192",
+                "type": "image/png"
+            },
+            {
+                "src": "https://via.placeholder.com/512x512.png?text=TF",
+                "sizes": "512x512",
+                "type": "image/png"
+            }
+        ]
+    }
+
+
+@app.get("/sw.js")
+def service_worker():
+    content = """
+const CACHE_NAME = "trackday-finder-v1";
+
+self.addEventListener("install", event => {
+    self.skipWaiting();
+});
+
+self.addEventListener("activate", event => {
+    event.waitUntil(clients.claim());
+});
+
+self.addEventListener("fetch", event => {
+    event.respondWith(fetch(event.request));
+});
+"""
+    return Response(
+        content=content,
+        media_type="application/javascript"
+    )
+
 @app.get("/", response_class=HTMLResponse)
 def home(
     q: str = Query(default=""),
@@ -1402,6 +1451,11 @@ def home(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#ef4444">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Trackday Finder">
 
 <title>Trackday Finder | Circuitdagen en trackdays in België en Nederland</title>
 
@@ -1933,6 +1987,11 @@ button {{
 
     html_page += """
 </div>
+<script>
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js");
+}
+</script>
 </body>
 </html>
 """
