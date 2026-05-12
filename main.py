@@ -709,6 +709,24 @@ def get_db_status():
 
     return dict(row)
 
+def get_event_counts_by_org():
+    init_db()
+
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+
+    rows = cursor.execute("""
+        SELECT organisatie, COUNT(*) as count
+        FROM events
+        GROUP BY organisatie
+        ORDER BY organisatie ASC
+    """).fetchall()
+
+    conn.close()
+
+    return rows
+
 
 def db_cache_is_fresh():
     status = get_db_status()
@@ -973,6 +991,174 @@ def ics_single_event(
 
     return Response(content="Event niet gevonden", status_code=404)
 
+@app.get("/admin", response_class=HTMLResponse)
+def admin():
+    status = get_db_status()
+    counts = get_event_counts_by_org()
+    events = load_events_from_db()
+
+    last_scrape = status.get("last_scrape_at") if status else "-"
+    last_success = status.get("last_success_at") if status else "-"
+    last_error = status.get("last_error") if status else "-"
+    event_count = status.get("event_count") if status else 0
+
+    if not last_error:
+        last_error = "Geen fout"
+
+    rows_html = ""
+
+    for row in counts:
+        rows_html += f"""
+        <tr>
+            <td>{html.escape(row["organisatie"])}</td>
+            <td>{row["count"]}</td>
+        </tr>
+        """
+
+    html_page = f"""
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin - Trackday Finder</title>
+
+<style>
+body {{
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #111827;
+    color: white;
+}}
+
+.container {{
+    max-width: 900px;
+    margin: auto;
+    padding: 24px;
+}}
+
+.card {{
+    background: white;
+    color: #111827;
+    padding: 20px;
+    border-radius: 16px;
+    margin-bottom: 16px;
+}}
+
+h1 {{
+    margin-bottom: 20px;
+}}
+
+table {{
+    width: 100%;
+    border-collapse: collapse;
+}}
+
+td, th {{
+    padding: 10px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}}
+
+.button {{
+    display: inline-block;
+    background: #ef4444;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 10px;
+    text-decoration: none;
+    font-weight: bold;
+    margin-right: 10px;
+}}
+
+.back {{
+    color: #fca5a5;
+    text-decoration: none;
+    font-weight: bold;
+}}
+
+.error {{
+    color: #991b1b;
+    font-weight: bold;
+}}
+
+.ok {{
+    color: #065f46;
+    font-weight: bold;
+}}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+    <h1>Admin / Debug</h1>
+
+    <p>
+        <a class="back" href="/">← Terug naar app</a>
+    </p>
+
+    <div class="card">
+        <h2>Status</h2>
+        <p><b>Laatste scrape poging:</b> {html.escape(str(last_scrape))}</p>
+        <p><b>Laatste succesvolle scrape:</b> {html.escape(str(last_success))}</p>
+        <p><b>Aantal events in database:</b> {event_count}</p>
+        <p><b>Laatste fout:</b> <span class="{ "ok" if last_error == "Geen fout" else "error" }">{html.escape(str(last_error))}</span></p>
+
+        <p>
+            <a class="button" href="/admin/refresh">Force refresh</a>
+            <a class="button" href="/api/events">Bekijk API</a>
+        </p>
+    </div>
+
+    <div class="card">
+        <h2>Events per organisatie</h2>
+        <table>
+            <tr>
+                <th>Organisatie</th>
+                <th>Aantal</th>
+            </tr>
+            {rows_html}
+        </table>
+    </div>
+
+    <div class="card">
+        <h2>Cache info</h2>
+        <p><b>RAM cache seconden:</b> {CACHE_SECONDS}</p>
+        <p><b>Database scrape interval:</b> {SCRAPE_INTERVAL_SECONDS} seconden</p>
+        <p><b>Database bestand:</b> {DB_PATH}</p>
+    </div>
+
+</div>
+</body>
+</html>
+"""
+
+    return html_page
+
+
+@app.get("/admin/refresh")
+def admin_refresh():
+    try:
+        events = scrape_events()
+        save_events_to_db(events)
+
+        _cache["events"] = events
+        _cache["time"] = time.time()
+
+        return {
+            "status": "ok",
+            "message": "Refresh uitgevoerd",
+            "event_count": len(events),
+        }
+
+    except Exception as e:
+        mark_scrape_error(e)
+
+        return {
+            "status": "error",
+            "message": str(e),
+        }
 
 @app.get("/", response_class=HTMLResponse)
 def home(
