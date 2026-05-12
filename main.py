@@ -25,6 +25,7 @@ HEADERS = {
 CACHE_SECONDS = 900
 _cache = {"time": 0, "events": []}
 DB_PATH = "trackdays.db"
+ADMIN_KEY = "TrackdayOnMoriwaki250"
 SCRAPE_INTERVAL_SECONDS = 3600
 
 MONTHS = {
@@ -992,7 +993,18 @@ def ics_single_event(
     return Response(content="Event niet gevonden", status_code=404)
 
 @app.get("/admin", response_class=HTMLResponse)
-def admin():
+def admin(
+    key: str = Query(default="")
+):
+
+    if key != ADMIN_KEY:
+        return HTMLResponse(
+            content="""
+            <h1>403 Forbidden</h1>
+            <p>Ongeldige admin key.</p>
+            """,
+            status_code=403,
+        )
     status = get_db_status()
     counts = get_event_counts_by_org()
     events = load_events_from_db()
@@ -1106,7 +1118,7 @@ td, th {{
         <p><b>Laatste fout:</b> <span class="{ "ok" if last_error == "Geen fout" else "error" }">{html.escape(str(last_error))}</span></p>
 
         <p>
-            <a class="button" href="/admin/refresh">Force refresh</a>
+            <a class="button" href="/admin/refresh?key={ADMIN_KEY}">Force refresh</a>
             <a class="button" href="/api/events">Bekijk API</a>
         </p>
     </div>
@@ -1138,7 +1150,14 @@ td, th {{
 
 
 @app.get("/admin/refresh")
-def admin_refresh():
+def admin_refresh(
+    key: str = Query(default="")
+):
+
+    if key != ADMIN_KEY:
+        return {
+            "status": "forbidden"
+        }
     try:
         events = scrape_events()
         save_events_to_db(events)
