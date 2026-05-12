@@ -1582,6 +1582,17 @@ button {{
     font-weight: bold;
 }}
 
+.install-button {{
+    background: #065f46;
+    color: white;
+    padding: 10px 14px;
+    border-radius: 999px;
+    border: none;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+}}
+
 .count {{
     color: white;
     margin-bottom: 15px;
@@ -1921,14 +1932,22 @@ button {{
             <a class="ics-all" href="/ics">Download alle trackdays (.ics)</a>
 
             <div class="quick-filters">
-                <a href="/?quick=today">Vandaag</a>
-                <a href="/?quick=week">Deze week</a>
-                <a href="/?quick=month">Deze maand</a>
-                <a href="/?quick=nextmonth">Volgende maand</a>
-                <a href="/">Alles</a>
-            </div>
-        </details>
-    </div>
+
+    <a href="/?quick=today">Vandaag</a>
+    <a href="/?quick=week">Deze week</a>
+    <a href="/?quick=month">Deze maand</a>
+    <a href="/?quick=nextmonth">Volgende maand</a>
+    <a href="/">Alles</a>
+
+    <button
+        id="installButton"
+        class="install-button"
+        style="display:none;"
+    >
+        Installeer app
+    </button>
+
+</div>
 
     {calendar_html}
 
@@ -1987,10 +2006,63 @@ button {{
 
     html_page += """
 </div>
+
 <script>
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js");
 }
+</script>
+<script>
+
+let deferredPrompt;
+
+const installButton =
+    document.getElementById("installButton");
+
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/sw.js");
+}
+
+window.addEventListener(
+    "beforeinstallprompt",
+    (event) => {
+
+        event.preventDefault();
+
+        deferredPrompt = event;
+
+        if (installButton) {
+            installButton.style.display = "inline-block";
+        }
+    }
+);
+
+if (installButton) {
+
+    installButton.addEventListener(
+        "click",
+        async () => {
+
+            if (!deferredPrompt) {
+
+                alert(
+                    "Installeren nog niet beschikbaar."
+                );
+
+                return;
+            }
+
+            deferredPrompt.prompt();
+
+            await deferredPrompt.userChoice;
+
+            deferredPrompt = null;
+
+            installButton.style.display = "none";
+        }
+    );
+}
+
 </script>
 </body>
 </html>
