@@ -1358,7 +1358,25 @@ def home(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trackday Finder</title>
+
+<title>Trackday Finder | Circuitdagen en trackdays in België en Nederland</title>
+
+<meta name="description" content="Vind trackdays en circuitdagen in België, Nederland en omstreken. Filter op circuit, organisatie, maand en datum. Inclusief kalender en agenda-export.">
+
+<meta name="keywords" content="trackday, trackdays, circuitdag, circuitdagen, motor trackday, auto trackday, Spa-Francorchamps, Zolder, Mettet, Assen, Zandvoort">
+
+<meta name="robots" content="index, follow">
+
+<link rel="canonical" href="https://trackday-finder.onrender.com/">
+
+<meta property="og:title" content="Trackday Finder">
+<meta property="og:description" content="Vind trackdays en circuitdagen op circuit, organisatie en maand. Inclusief kalender en agenda-export.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://trackday-finder.onrender.com/">
+
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Trackday Finder">
+<meta name="twitter:description" content="Vind trackdays en circuitdagen in België, Nederland en omstreken.">
 
 <style>
 body {{
