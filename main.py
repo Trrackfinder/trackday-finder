@@ -2156,7 +2156,25 @@ window.addEventListener('appinstalled', () => {
 
     installBtn.style.display = 'none';
 });
+<script>
+if ('serviceWorker' in navigator) {
+
+    navigator.serviceWorker.register('/static/sw.js')
+        .then(() => {
+            console.log('Service Worker Registered');
+        })
+        .catch(error => {
+            console.log('Service Worker Error:', error);
+        });
+
+}
 </script>
+
+<script>
+let deferredPrompt;
+...
+</script>
+
 </body>
 </html>
 """
