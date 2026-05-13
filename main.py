@@ -22,7 +22,7 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "AppleWebKit/537.36 (K, like Gecko) "
         "Chrome/122.0.0.0 Safari/537.36"
     ),
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -1484,6 +1484,25 @@ def home(
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Trackday Finder">
+<link rel="manifest" href="/static/manifest.json">
+
+<meta name="theme-color" content="#111111">
+
+<link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+
+<!-- GOOGLE ANALYTICS HERE -->
+
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-XXXXXXXX"></script>
+
+<script>
+window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+
+gtag('config', 'G-11D49KBTB8');
+</script>
+
+</head>
 
 <title>Trackday Finder | Circuitdagen en trackdays in België en Nederland</title>
 
