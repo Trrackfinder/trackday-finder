@@ -2188,6 +2188,12 @@ installBtn.addEventListener('click', async () => {
     installBtn.style.display = 'none';
 });
 
+if (window.matchMedia('(display-mode: standalone)').matches) {
+
+    installButton.style.display = 'none';
+
+}
+
 window.addEventListener('appinstalled', () => {
 
     console.log('PWA installed');
