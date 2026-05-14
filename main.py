@@ -542,6 +542,7 @@ def get_trackdays4all_events():
     return events
 
 def get_motorcircuittraining_events():
+    return []
 
     url = "https://motorcircuittraining.nl/kalender/"
     events = []
