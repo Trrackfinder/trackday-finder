@@ -541,6 +541,49 @@ def get_trackdays4all_events():
 
     return events
 
+def get_motorcircuittraining_events():
+
+    url = "https://motorcircuittraining.nl/kalender/"
+    events = []
+
+    try:
+
+        response = requests.get(
+            url,
+            headers=HEADERS,
+            timeout=20
+        )
+
+        soup = BeautifulSoup(response.text, "html.parser")
+
+        text = soup.get_text("\n")
+
+        lines = text.splitlines()
+
+        for line in lines:
+
+            line = line.strip()
+
+            if not line:
+                continue
+
+            if "Assen" in line or "Zandvoort" in line or "Mettet" in line:
+
+                events.append({
+                    "date": "",
+                    "circuit": line,
+                    "organisatie": "Motor Circuit Training",
+                    "price": "",
+                    "url": url,
+                    "raw": line
+                })
+
+    except Exception as e:
+
+        print("Motor Circuit Training fout:", e)
+
+    return events
+
 
 def scrape_events():
     events = []
@@ -550,6 +593,7 @@ def scrape_events():
     events += get_circuitdagen_events()
     events += get_trackzone_events()
     events += get_trackdays4all_events()
+    events += get_motorcircuittraining_events()
 
     unique = []
     seen = set()
