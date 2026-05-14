@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://trackday-finder.onrender.com/static/sitemap.xml
