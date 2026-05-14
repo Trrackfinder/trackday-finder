@@ -854,7 +854,7 @@ def get_events():
     e for e in fallback_events
     if e.get("status", "published") == "published"
 ]
-        events = [e for e in events if e.get("status", "published") == "published"]
+       # events = [e for e in events if e.get("status", "published") == "published"]
 
         _cache["events"] = fallback_events
         _cache["time"] = now
