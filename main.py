@@ -182,6 +182,7 @@ def get_intertrack_events():
                 "price": "Zie organisatie",
                 "url": source_url,
                 "raw": clean,
+                "status": "published",
             })
 
     except Exception as e:
@@ -383,6 +384,7 @@ def get_circuitdagen_events():
                 "price": "Zie organisatie",
                 "url": event_url,
                 "raw": block_text,
+                "status": "published",
             })
 
     except Exception as e:
@@ -447,6 +449,7 @@ def get_trackzone_events():
                 "price": "Zie organisatie",
                 "url": url,
                 "raw": block_text,
+                "status": "published",
             })
 
     except Exception as e:
@@ -530,6 +533,7 @@ def get_trackdays4all_events():
                 "price": "Zie organisatie",
                 "url": url,
                 "raw": block_text,
+                "status": "published",
             })
 
     except Exception as e:
@@ -686,6 +690,7 @@ def load_events_from_db():
             "price": row["price"],
             "url": row["url"],
             "raw": row["raw"] or "",
+            "status": "published",
         })
 
     events.sort(key=lambda e: e["date_obj"])
