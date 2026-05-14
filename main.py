@@ -1140,60 +1140,7 @@ td, th {{
 </head>
 
 <body>
-<div id="typePopup" style="
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,0.85);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 99999;
-">
 
-    <div style="
-        background: #1f2937;
-        padding: 30px;
-        border-radius: 18px;
-        text-align: center;
-        width: 300px;
-        color: white;
-        box-shadow: 0 0 30px rgba(0,0,0,0.4);
-    ">
-
-        <h2 style="margin-top:0;">
-            Kies je trackday type
-        </h2>
-
-        <button id="carBtn" style="
-            width: 100%;
-            padding: 14px;
-            margin-top: 15px;
-            border: none;
-            border-radius: 12px;
-            background: #2563eb;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-        ">
-            🚗 Auto
-        </button>
-
-        <button id="bikeBtn" style="
-            width: 100%;
-            padding: 14px;
-            margin-top: 12px;
-            border: none;
-            border-radius: 12px;
-            background: #dc2626;
-            color: white;
-            font-size: 18px;
-            cursor: pointer;
-        ">
-            🏍 Motor
-        </button>
-
-    </div>
-</div>
 <div class="container">
 
     <h1>Admin / Debug</h1>
