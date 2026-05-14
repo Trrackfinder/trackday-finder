@@ -1504,7 +1504,7 @@ gtag('config', 'G-11D49KBTB8');
 
 </head>
 
-<title>Trackday Finder | Circuitdagen en trackdays in België en Nederland</title>
+<title>Trackday Finder Benelux | Circuitdagen in België & Nederland</title>
 
 <meta name="description" content="Vind trackdays en circuitdagen in België, Nederland en omstreken. Filter op circuit, organisatie, maand en datum. Inclusief kalender en agenda-export.">
 <meta name="keywords"
