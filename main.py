@@ -584,7 +584,6 @@ def get_motorcircuittraining_events():
 
     return events
 
-
 def scrape_events():
     events = []
 
