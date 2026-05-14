@@ -2194,6 +2194,12 @@ if (window.matchMedia('(display-mode: standalone)').matches) {
 
 }
 
+if (window.matchMedia('(display-mode: standalone)').matches) {
+
+    installButton.style.display = 'none';
+
+}
+
 window.addEventListener('appinstalled', () => {
 
     console.log('PWA installed');
