@@ -1507,7 +1507,18 @@ gtag('config', 'G-11D49KBTB8');
 <title>Trackday Finder | Circuitdagen en trackdays in België en Nederland</title>
 
 <meta name="description" content="Vind trackdays en circuitdagen in België, Nederland en omstreken. Filter op circuit, organisatie, maand en datum. Inclusief kalender en agenda-export.">
+<meta property="og:title" content="Trackday Finder Benelux">
 
+<meta property="og:description"
+      content="Vind trackdays en circuitdagen in België, Nederland en omstreken.">
+
+<meta property="og:type" content="website">
+
+<meta property="og:url"
+      content="https://trackday-finder.onrender.com/">
+
+<meta property="og:image"
+      content="https://trackday-finder.onrender.com/static/icons/icon-512.png">
 <meta name="keywords" content="trackday, trackdays, circuitdag, circuitdagen, motor trackday, auto trackday, Spa-Francorchamps, Zolder, Mettet, Assen, Zandvoort">
 
 <meta name="robots" content="index, follow">
