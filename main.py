@@ -2105,6 +2105,14 @@ let deferredPrompt;
 const installButton =
     document.getElementById("installBtn");
 
+if (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true ||
+    localStorage.getItem("trackdayAppInstalled") === "yes"
+) {
+    installButton.style.display = "none";
+}
+
 if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/sw.js");
 }
@@ -2155,6 +2163,22 @@ let deferredPrompt;
 
 const installBtn = document.getElementById('installBtn');
 
+if (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true ||
+    localStorage.getItem("trackdayAppInstalled") === "yes"
+) {
+    installButton.style.display = "none";
+}
+
+if (
+    window.matchMedia('(display-mode: standalone)').matches ||
+    window.navigator.standalone === true ||
+    localStorage.getItem("trackdayAppInstalled") === "yes"
+) {
+    installBtn.style.display = "none";
+}
+
 window.addEventListener('beforeinstallprompt', (e) => {
 
     // Stop automatic popup
@@ -2201,7 +2225,7 @@ if (window.matchMedia('(display-mode: standalone)').matches) {
 }
 
 window.addEventListener('appinstalled', () => {
-
+    localStorage.setItem("trackdayAppInstalled", "yes");
     console.log('PWA installed');
 
     installBtn.style.display = 'none';
