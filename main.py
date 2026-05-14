@@ -1507,6 +1507,8 @@ gtag('config', 'G-11D49KBTB8');
 <title>Trackday Finder | Circuitdagen en trackdays in België en Nederland</title>
 
 <meta name="description" content="Vind trackdays en circuitdagen in België, Nederland en omstreken. Filter op circuit, organisatie, maand en datum. Inclusief kalender en agenda-export.">
+<meta name="keywords"
+      content="trackday, trackdays, dagje racen, circuitdagen, trackdays benelux, mettet, croix, folembray, ecuyers, zolder, spa francorchamps, assen, zandvoort, motorsport, motor circuit">
 <meta property="og:title" content="Trackday Finder Benelux">
 
 <meta property="og:description"
